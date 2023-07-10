@@ -14,7 +14,6 @@ func main() {
 	rnd := rand.New(rand.NewSource(1))
 	target := 77
 	n := int(math.Ceil(math.Log2(float64(target))))
-	step := .1
 	a := make([]float64, 0, n)
 	b := make([]float64, 0, n)
 	for i := 0; i < n; i++ {
@@ -36,8 +35,8 @@ func main() {
 		fmt.Println(x)
 	}
 	costs := []int{}
-	samples := 1024
-	sample := func(a, b []float64, ia, ib int, d float64) (avg, ss float64) {
+	samples := 8 * 1024
+	sample := func(a, b []float64, ia, ib int, d float64) (avg, sd float64) {
 		i := 0
 		for i < samples {
 			x := 0
@@ -83,65 +82,79 @@ func main() {
 				costs = append(costs, cost)
 			}
 			avg += float64(cost)
-			ss += float64(cost) * float64(cost)
+			sd += float64(cost) * float64(cost)
 			i += 1
 		}
 		avg /= float64(samples)
-		ss = math.Sqrt(ss/float64(samples) - avg*avg)
-		return
+		sd = math.Sqrt(sd/float64(samples) - avg*avg)
+		return avg, sd
 	}
-	avg1, ss1 := sample(a, b, -1, -1, 0)
-	avg2, ss2 := avg1, ss1
+
+	avg, sd := sample(a, b, -1, -1, 0)
 	j := 0
 	for j < 1000 {
-		if (ss1 == 0) && (ss2 == 0) {
+		if sd == 0 {
 			break
 		}
-		min := 0.0
-		index := -1
+		min1 := 0.0
+		min2 := 0.0
+		index1 := -1
+		index2 := -1
 		for i := 0; i < n; i++ {
-			step = rnd.NormFloat64()
-			x, sx := sample(a, b, i, -1, step)
-			y, sy := sample(a, b, i, -1, -step)
-			if x < avg1 {
-				avg1 = x
-				ss1 = sx
-				min = step
-				index = i
+			step1 := rnd.NormFloat64()
+			aa := make([]float64, len(a))
+			copy(aa, a)
+			aa[i] += step1
+			for j := 0; j < n; j++ {
+				step2 := rnd.NormFloat64()
+				x, sx := sample(aa, b, -1, j, step2)
+				y, sy := sample(aa, b, -1, j, -step2)
+				if x < avg {
+					avg = x
+					sd = sx
+					min1 = step1
+					min2 = step2
+					index1 = i
+					index2 = j
+				}
+				if y < avg {
+					avg = y
+					sd = sy
+					min1 = step1
+					min2 = -step2
+					index1 = i
+					index2 = j
+				}
 			}
-			if y < avg1 {
-				avg1 = y
-				ss1 = sy
-				min = -step
-				index = i
+
+			copy(aa, a)
+			aa[i] -= step1
+			for j := 0; j < n; j++ {
+				step2 := rnd.NormFloat64()
+				x, sx := sample(aa, b, -1, j, step2)
+				y, sy := sample(aa, b, -1, j, -step2)
+				if x < avg {
+					avg = x
+					sd = sx
+					min1 = -step1
+					min2 = step2
+					index1 = i
+					index2 = j
+				}
+				if y < avg {
+					avg = y
+					sd = sy
+					min1 = -step1
+					min2 = -step2
+					index1 = i
+					index2 = j
+				}
 			}
 		}
-		if index >= 0 {
-			a[index] += min
-			fmt.Println(j, avg1, ss1)
-		}
-		min = 0.0
-		index = -1
-		for i := 0; i < n; i++ {
-			step = rnd.NormFloat64()
-			x, sx := sample(a, b, -1, i, step)
-			y, sy := sample(a, b, -1, i, -step)
-			if x < avg2 {
-				avg2 = x
-				ss2 = sx
-				min = step
-				index = i
-			}
-			if y < avg2 {
-				avg2 = y
-				ss2 = sy
-				min = -step
-				index = i
-			}
-		}
-		if index >= 0 {
-			b[index] += min
-			fmt.Println(j, avg2, ss2)
+		if index1 >= 0 && index2 >= 0 {
+			a[index1] += min1
+			b[index2] += min2
+			fmt.Println(j, avg, sd)
 		}
 		j++
 	}
