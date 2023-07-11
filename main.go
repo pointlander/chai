@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 )
 
 func main() {
@@ -34,7 +35,6 @@ func main() {
 		}
 		fmt.Println(x)
 	}
-	costs := []int{}
 	samples := 8 * 1024
 	sample := func(a, b []float64, ia, ib int, d float64) (avg, sd float64) {
 		i := 0
@@ -78,9 +78,6 @@ func main() {
 				cost = -cost
 			}
 			cost += yy + xx
-			if d == 0 {
-				costs = append(costs, cost)
-			}
 			avg += float64(cost)
 			sd += float64(cost) * float64(cost)
 			i += 1
@@ -96,66 +93,34 @@ func main() {
 		if sd == 0 {
 			break
 		}
-		min1 := 0.0
-		min2 := 0.0
-		index1 := -1
-		index2 := -1
-		for i := 0; i < n; i++ {
-			step1 := rnd.NormFloat64()
-			aa := make([]float64, len(a))
-			copy(aa, a)
-			aa[i] += step1
-			for j := 0; j < n; j++ {
-				step2 := rnd.NormFloat64()
-				x, sx := sample(aa, b, -1, j, step2)
-				y, sy := sample(aa, b, -1, j, -step2)
-				if x < avg {
-					avg = x
-					sd = sx
-					min1 = step1
-					min2 = step2
-					index1 = i
-					index2 = j
-				}
-				if y < avg {
-					avg = y
-					sd = sy
-					min1 = step1
-					min2 = -step2
-					index1 = i
-					index2 = j
-				}
-			}
-
-			copy(aa, a)
-			aa[i] -= step1
-			for j := 0; j < n; j++ {
-				step2 := rnd.NormFloat64()
-				x, sx := sample(aa, b, -1, j, step2)
-				y, sy := sample(aa, b, -1, j, -step2)
-				if x < avg {
-					avg = x
-					sd = sx
-					min1 = -step1
-					min2 = step2
-					index1 = i
-					index2 = j
-				}
-				if y < avg {
-					avg = y
-					sd = sy
-					min1 = -step1
-					min2 = -step2
-					index1 = i
-					index2 = j
-				}
-			}
+		type Sample struct {
+			DeltasA []float64
+			DeltasB []float64
+			Avg     float64
+			Sd      float64
 		}
-		if index1 >= 0 && index2 >= 0 {
-			a[index1] += min1
-			b[index2] += min2
-			fmt.Println(j, avg, sd)
+		samples := make([]Sample, 16)
+		for i := range samples {
+			samples[i].DeltasA = make([]float64, len(a))
+			copy(samples[i].DeltasA, a)
+			for j := range samples[i].DeltasA {
+				samples[i].DeltasA[j] += rnd.NormFloat64()
+			}
+			samples[i].DeltasB = make([]float64, len(b))
+			copy(samples[i].DeltasB, b)
+			for j := range samples[i].DeltasB {
+				samples[i].DeltasB[j] += rnd.NormFloat64()
+			}
+			samples[i].Avg, samples[i].Sd = sample(samples[i].DeltasA, samples[i].DeltasB, -1, -1, 0)
 		}
+		sort.Slice(samples, func(i, j int) bool {
+			return samples[i].Avg < samples[j].Avg
+		})
+		avg = samples[0].Avg
+		sd = samples[0].Sd
+		a = samples[0].DeltasA
+		b = samples[0].DeltasB
+		fmt.Println(j, avg, sd)
 		j++
 	}
 	fmt.Println(a)
