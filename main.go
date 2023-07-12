@@ -13,22 +13,26 @@ import (
 
 func main() {
 	rnd := rand.New(rand.NewSource(1))
+	type Distribution struct {
+		Mean   float64
+		StdDev float64
+	}
 	target := 77
 	n := int(math.Ceil(math.Log2(float64(target))))
-	a := make([]float64, 0, n)
-	b := make([]float64, 0, n)
+	a := make([]Distribution, 0, n)
+	b := make([]Distribution, 0, n)
 	for i := 0; i < n; i++ {
-		a = append(a, 0)
-		b = append(b, 0)
+		a = append(a, Distribution{Mean: 0, StdDev: 1})
+		b = append(b, Distribution{Mean: 0, StdDev: 1})
 	}
 	fmt.Println(n)
 	fmt.Println(a)
 	fmt.Println(b)
-	shownum := func(a []float64) {
+	shownum := func(a []Distribution) {
 		x := 0.0
 		e := 1.0
 		for _, v := range a {
-			if v > 0 {
+			if v.Mean > 0 {
 				x += e
 			}
 			e *= 2
@@ -36,7 +40,7 @@ func main() {
 		fmt.Println(x)
 	}
 	samples := 8 * 1024
-	sample := func(a, b []float64, ia, ib int, d float64) (avg, sd float64) {
+	sample := func(a, b []Distribution, ia, ib int, d float64) (avg, sd float64) {
 		i := 0
 		for i < samples {
 			x := 0
@@ -45,9 +49,9 @@ func main() {
 			k := 0
 			for _, v := range a {
 				if k == ia {
-					v = v + d
+					v.Mean = v.Mean + d
 				}
-				if (rnd.NormFloat64() + v) > 0 {
+				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
 					x += e
 				}
 				e *= 2
@@ -57,9 +61,9 @@ func main() {
 			k = 0
 			for _, v := range b {
 				if k == ib {
-					v = v + d
+					v.Mean = v.Mean + d
 				}
-				if (rnd.NormFloat64() + v) > 0 {
+				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
 					y += e
 				}
 				e *= 2
@@ -94,32 +98,40 @@ func main() {
 			break
 		}
 		type Sample struct {
-			DeltasA []float64
-			DeltasB []float64
+			DeltasA []Distribution
+			DeltasB []Distribution
 			Avg     float64
 			Sd      float64
 		}
 		samples := make([]Sample, 16)
 		for i := range samples {
-			samples[i].DeltasA = make([]float64, len(a))
+			samples[i].DeltasA = make([]Distribution, len(a))
 			copy(samples[i].DeltasA, a)
 			for j := range samples[i].DeltasA {
-				samples[i].DeltasA[j] += rnd.NormFloat64()
+				samples[i].DeltasA[j].Mean += rnd.NormFloat64()
+				samples[i].DeltasA[j].StdDev += rnd.NormFloat64()
+				if samples[i].DeltasA[j].StdDev < 0 {
+					samples[i].DeltasA[j].StdDev = -samples[i].DeltasA[j].StdDev
+				}
 			}
-			samples[i].DeltasB = make([]float64, len(b))
+			samples[i].DeltasB = make([]Distribution, len(b))
 			copy(samples[i].DeltasB, b)
 			for j := range samples[i].DeltasB {
-				samples[i].DeltasB[j] += rnd.NormFloat64()
+				samples[i].DeltasB[j].Mean += rnd.NormFloat64()
+				samples[i].DeltasB[j].StdDev += rnd.NormFloat64()
+				if samples[i].DeltasB[j].StdDev < 0 {
+					samples[i].DeltasB[j].StdDev = -samples[i].DeltasB[j].StdDev
+				}
 			}
 			samples[i].Avg, samples[i].Sd = sample(samples[i].DeltasA, samples[i].DeltasB, -1, -1, 0)
 		}
 		sort.Slice(samples, func(i, j int) bool {
 			return samples[i].Avg < samples[j].Avg
 		})
-		avg = samples[0].Avg
-		sd = samples[0].Sd
-		a = samples[0].DeltasA
-		b = samples[0].DeltasB
+		avg = samples[1].Avg
+		sd = samples[1].Sd
+		a = samples[1].DeltasA
+		b = samples[1].DeltasB
 		fmt.Println(j, avg, sd)
 		j++
 	}
