@@ -17,6 +17,8 @@ var (
 	FlagBits = flag.Bool("bits", false, "bits mode")
 	// FlagNumbers numbers mode
 	FlagNumbers = flag.Bool("numbers", false, "numbers mode")
+	// FlagSwarm swarm mode
+	FlagSwarm = flag.Bool("swarm", false, "swarm mode")
 )
 
 func main() {
@@ -29,6 +31,11 @@ func main() {
 
 	if *FlagNumbers {
 		Numbers()
+		return
+	}
+
+	if *FlagSwarm {
+		Swarm()
 		return
 	}
 }
@@ -161,6 +168,166 @@ func Bits() {
 	fmt.Println(b)
 	shownum(a)
 	shownum(b)
+}
+
+func Swarm() {
+	rnd := rand.New(rand.NewSource(1))
+	type Distribution struct {
+		Mean   float64
+		StdDev float64
+	}
+	target := 77
+	max := math.Sqrt(float64(target))
+	n := int(math.Ceil(math.Log2(max)))
+
+	shownum := func(a []Distribution) int {
+		x := 0
+		e := 1
+		for _, v := range a {
+			if v.Mean > 0 {
+				x += e
+			}
+			e *= 2
+		}
+		fmt.Println(x)
+		return x
+	}
+
+	samples := 1024
+	sample := func(a, b []Distribution, ia, ib int, d float64) (avg, sd float64) {
+		i := 0
+		for i < samples {
+			x := 0
+			y := 0
+			e := 1
+			k := 0
+			for _, v := range a {
+				if k == ia {
+					v.Mean = v.Mean + d
+				}
+				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+					x += e
+				}
+				e *= 2
+				k++
+			}
+			e = 1
+			k = 0
+			for _, v := range b {
+				if k == ib {
+					v.Mean = v.Mean + d
+				}
+				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+					y += e
+				}
+				e *= 2
+				k++
+			}
+			xx := 0
+			if x > 0 {
+				xx = target % x
+			}
+			yy := 0
+			if y > 0 {
+				yy = target % y
+			}
+			cost := target - x*y
+			if cost < 0 {
+				cost = -cost
+			}
+			cost += yy + xx
+			avg += float64(cost)
+			sd += float64(cost) * float64(cost)
+			i += 1
+		}
+		avg /= float64(samples)
+		sd = math.Sqrt(sd/float64(samples) - avg*avg)
+		return avg, sd
+	}
+
+	g := math.MaxFloat64
+	g1 := make([]Distribution, n)
+	g2 := make([]Distribution, n)
+	type Particle struct {
+		X1, X2 []Distribution
+		P1, P2 []Distribution
+		P      float64
+		V1, V2 []float64
+	}
+	particles := make([]Particle, 256)
+	for i := range particles {
+		a := make([]Distribution, 0, n)
+		b := make([]Distribution, 0, n)
+		for i := 0; i < n; i++ {
+			a = append(a, Distribution{Mean: rnd.Float64() * 3, StdDev: rnd.Float64() * 3})
+			b = append(b, Distribution{Mean: rnd.Float64() * 3, StdDev: rnd.Float64() * 3})
+		}
+		particles[i].X1 = a
+		particles[i].X2 = b
+		x := make([]Distribution, n)
+		y := make([]Distribution, n)
+		copy(x, a)
+		copy(y, b)
+		particles[i].P1 = x
+		particles[i].P2 = y
+		particles[i].P, _ = sample(particles[i].P1, particles[i].P2, -1, -1, 0)
+		if particles[i].P < g {
+			g = particles[i].P
+			copy(g1, particles[i].P1)
+			copy(g2, particles[i].P2)
+		}
+		v1 := make([]float64, n)
+		for i := range v1 {
+			v1[i] = rnd.Float64() * 3
+		}
+		particles[i].V1 = v1
+		v2 := make([]float64, n)
+		for i := range v2 {
+			v2[i] = rnd.Float64() * 3
+		}
+		particles[i].V2 = v2
+	}
+
+	const w, w1, w2 = .5, 2, .2
+	for {
+		for i := range particles {
+			for j := range particles[i].X1 {
+				rp, rg := rnd.Float64(), rnd.Float64()
+				particles[i].V1[j] = w*particles[i].V1[j] +
+					w1*rp*(particles[i].P1[j].Mean-particles[i].X1[j].Mean) +
+					w2*rg*(g1[j].Mean-particles[i].X1[j].Mean)
+			}
+			for j := range particles[i].X2 {
+				rp, rg := rnd.Float64(), rnd.Float64()
+				particles[i].V2[j] = w*particles[i].V2[j] +
+					w1*rp*(particles[i].P2[j].Mean-particles[i].X2[j].Mean) +
+					w2*rg*(g2[j].Mean-particles[i].X2[j].Mean)
+			}
+			for j := range particles[i].X1 {
+				particles[i].X1[j].Mean += particles[i].V1[j]
+			}
+			for j := range particles[i].X2 {
+				particles[i].X2[j].Mean += particles[i].V2[j]
+			}
+			a, s := sample(particles[i].X1, particles[i].X2, -1, -1, 0)
+			if a < particles[i].P {
+				copy(particles[i].P1, particles[i].X1)
+				copy(particles[i].P2, particles[i].X2)
+				particles[i].P = a
+				if a < g {
+					g = a
+					fmt.Println(g, s)
+					x := shownum(g1)
+					y := shownum(g2)
+					if x*y == target {
+						return
+					}
+					copy(g1, particles[i].P1)
+					copy(g2, particles[i].P2)
+				}
+			}
+		}
+	}
 }
 
 func Numbers() {
