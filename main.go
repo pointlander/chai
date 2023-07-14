@@ -259,8 +259,8 @@ func Swarm() {
 		a := make([]Distribution, 0, n)
 		b := make([]Distribution, 0, n)
 		for i := 0; i < n; i++ {
-			a = append(a, Distribution{Mean: rnd.Float64() * 3, StdDev: rnd.Float64() * 3})
-			b = append(b, Distribution{Mean: rnd.Float64() * 3, StdDev: rnd.Float64() * 3})
+			a = append(a, Distribution{Mean: rnd.Float64() * 3, StdDev: 1})
+			b = append(b, Distribution{Mean: rnd.Float64() * 3, StdDev: 1})
 		}
 		particles[i].X1 = a
 		particles[i].X2 = b
