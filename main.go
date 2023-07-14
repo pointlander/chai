@@ -193,7 +193,7 @@ func Swarm() {
 		return x
 	}
 
-	samples := 1024
+	samples := 16 * 1024
 	sample := func(a, b []Distribution) (avg, sd float64) {
 		i := 0
 		for i < samples {
@@ -244,7 +244,7 @@ func Swarm() {
 		P      float64
 		V1, V2 []float64
 	}
-	particles := make([]Particle, 128)
+	particles := make([]Particle, 16)
 	for i := range particles {
 		a := make([]Distribution, 0, n)
 		b := make([]Distribution, 0, n)
@@ -278,7 +278,7 @@ func Swarm() {
 		particles[i].V2 = v2
 	}
 
-	const w, w1, w2 = .5, .8, .2
+	const w, w1, w2 = .5, .8, .1
 	for {
 		for i := range particles {
 			for j := range particles[i].X1 {
