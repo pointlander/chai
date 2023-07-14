@@ -194,34 +194,24 @@ func Swarm() {
 	}
 
 	samples := 1024
-	sample := func(a, b []Distribution, ia, ib int, d float64) (avg, sd float64) {
+	sample := func(a, b []Distribution) (avg, sd float64) {
 		i := 0
 		for i < samples {
 			x := 0
 			y := 0
 			e := 1
-			k := 0
 			for _, v := range a {
-				if k == ia {
-					v.Mean = v.Mean + d
-				}
 				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
 					x += e
 				}
 				e *= 2
-				k++
 			}
 			e = 1
-			k = 0
 			for _, v := range b {
-				if k == ib {
-					v.Mean = v.Mean + d
-				}
 				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
 					y += e
 				}
 				e *= 2
-				k++
 			}
 			xx := 0
 			if x > 0 {
@@ -254,13 +244,13 @@ func Swarm() {
 		P      float64
 		V1, V2 []float64
 	}
-	particles := make([]Particle, 256)
+	particles := make([]Particle, 128)
 	for i := range particles {
 		a := make([]Distribution, 0, n)
 		b := make([]Distribution, 0, n)
 		for i := 0; i < n; i++ {
-			a = append(a, Distribution{Mean: rnd.Float64() * 3, StdDev: 1})
-			b = append(b, Distribution{Mean: rnd.Float64() * 3, StdDev: 1})
+			a = append(a, Distribution{Mean: (2*rnd.Float64() - 1) * 10, StdDev: 1})
+			b = append(b, Distribution{Mean: (2*rnd.Float64() - 1) * 10, StdDev: 1})
 		}
 		particles[i].X1 = a
 		particles[i].X2 = b
@@ -270,7 +260,7 @@ func Swarm() {
 		copy(y, b)
 		particles[i].P1 = x
 		particles[i].P2 = y
-		particles[i].P, _ = sample(particles[i].P1, particles[i].P2, -1, -1, 0)
+		particles[i].P, _ = sample(particles[i].P1, particles[i].P2)
 		if particles[i].P < g {
 			g = particles[i].P
 			copy(g1, particles[i].P1)
@@ -278,17 +268,17 @@ func Swarm() {
 		}
 		v1 := make([]float64, n)
 		for i := range v1 {
-			v1[i] = rnd.Float64() * 3
+			v1[i] = (2*rnd.Float64() - 1) * 10
 		}
 		particles[i].V1 = v1
 		v2 := make([]float64, n)
 		for i := range v2 {
-			v2[i] = rnd.Float64() * 3
+			v2[i] = (2*rnd.Float64() - 1) * 10
 		}
 		particles[i].V2 = v2
 	}
 
-	const w, w1, w2 = .5, 2, .2
+	const w, w1, w2 = .5, .8, .2
 	for {
 		for i := range particles {
 			for j := range particles[i].X1 {
@@ -309,7 +299,7 @@ func Swarm() {
 			for j := range particles[i].X2 {
 				particles[i].X2[j].Mean += particles[i].V2[j]
 			}
-			a, s := sample(particles[i].X1, particles[i].X2, -1, -1, 0)
+			a, s := sample(particles[i].X1, particles[i].X2)
 			if a < particles[i].P {
 				copy(particles[i].P1, particles[i].X1)
 				copy(particles[i].P2, particles[i].X2)
@@ -317,13 +307,13 @@ func Swarm() {
 				if a < g {
 					g = a
 					fmt.Println(g, s)
+					copy(g1, particles[i].P1)
+					copy(g2, particles[i].P2)
 					x := shownum(g1)
 					y := shownum(g2)
 					if x*y == target {
 						return
 					}
-					copy(g1, particles[i].P1)
-					copy(g2, particles[i].P2)
 				}
 			}
 		}
