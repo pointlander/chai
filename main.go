@@ -254,11 +254,11 @@ func Swarm() {
 		x := make([]Distribution, n)
 		copy(x, a)
 		particles[i].P = x
-		v1 := make([]float64, n)
-		for i := range v1 {
-			v1[i] = (2*rnd.Float64() - 1) * 10
+		v := make([]float64, n)
+		for i := range v {
+			v[i] = (2*rnd.Float64() - 1) * 10
 		}
-		particles[i].V = v1
+		particles[i].V = v
 	}
 
 	for i := range particles {
