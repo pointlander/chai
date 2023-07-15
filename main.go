@@ -176,7 +176,7 @@ func Swarm() {
 		Mean   float64
 		StdDev float64
 	}
-	target := 77
+	target := 15
 	max := math.Sqrt(float64(target))
 	n := int(math.Ceil(math.Log2(max)))
 
@@ -264,13 +264,19 @@ func Swarm() {
 	for i := range particles {
 		self := particles[i:]
 		for j := range self {
-			a, _ := sample(particles[i].P, self[j].P)
+			a, s := sample(particles[i].P, self[j].P)
 			if a < g {
 				particles[i].F = a
 				self[j].F = a
 				g = a
+				fmt.Println(g, s)
 				copy(g1, particles[i].P)
 				copy(g2, self[j].P)
+				x := shownum(g1)
+				y := shownum(g2)
+				if x*y == target {
+					return
+				}
 			}
 		}
 	}
