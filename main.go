@@ -19,6 +19,8 @@ var (
 	FlagNumbers = flag.Bool("numbers", false, "numbers mode")
 	// FlagSwarm swarm mode
 	FlagSwarm = flag.Bool("swarm", false, "swarm mode")
+	// FlagTarget is the target value
+	FlagTarget = flag.Int("target", 77, "target value")
 )
 
 func main() {
@@ -46,7 +48,7 @@ func Bits() {
 		Mean   float64
 		StdDev float64
 	}
-	target := 77
+	target := *FlagTarget
 	n := int(math.Ceil(math.Log2(float64(target))))
 	a := make([]Distribution, 0, n)
 	b := make([]Distribution, 0, n)
@@ -176,7 +178,7 @@ func Swarm() {
 		Mean   float64
 		StdDev float64
 	}
-	target := 15
+	target := *FlagTarget
 	max := math.Sqrt(float64(target))
 	n := int(math.Ceil(math.Log2(max)))
 
@@ -326,7 +328,7 @@ func Numbers() {
 		Mean   float64
 		StdDev float64
 	}
-	target := 77
+	target := *FlagTarget
 	n := int(math.Ceil(math.Log2(float64(target))))
 	a := Distribution{Mean: 0, StdDev: math.Ceil(math.Sqrt(float64(target)))}
 	b := Distribution{Mean: 0, StdDev: math.Ceil(math.Sqrt(float64(target)))}
