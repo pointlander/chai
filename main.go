@@ -239,80 +239,74 @@ func Swarm() {
 	g1 := make([]Distribution, n)
 	g2 := make([]Distribution, n)
 	type Particle struct {
-		X1, X2 []Distribution
-		P1, P2 []Distribution
-		P      float64
-		V1, V2 []float64
+		X []Distribution
+		P []Distribution
+		F float64
+		V []float64
 	}
 	particles := make([]Particle, 16)
 	for i := range particles {
 		a := make([]Distribution, 0, n)
-		b := make([]Distribution, 0, n)
 		for i := 0; i < n; i++ {
 			a = append(a, Distribution{Mean: (2*rnd.Float64() - 1) * 10, StdDev: 1})
-			b = append(b, Distribution{Mean: (2*rnd.Float64() - 1) * 10, StdDev: 1})
 		}
-		particles[i].X1 = a
-		particles[i].X2 = b
+		particles[i].X = a
 		x := make([]Distribution, n)
-		y := make([]Distribution, n)
 		copy(x, a)
-		copy(y, b)
-		particles[i].P1 = x
-		particles[i].P2 = y
-		particles[i].P, _ = sample(particles[i].P1, particles[i].P2)
-		if particles[i].P < g {
-			g = particles[i].P
-			copy(g1, particles[i].P1)
-			copy(g2, particles[i].P2)
-		}
+		particles[i].P = x
 		v1 := make([]float64, n)
 		for i := range v1 {
 			v1[i] = (2*rnd.Float64() - 1) * 10
 		}
-		particles[i].V1 = v1
-		v2 := make([]float64, n)
-		for i := range v2 {
-			v2[i] = (2*rnd.Float64() - 1) * 10
+		particles[i].V = v1
+	}
+
+	for i := range particles {
+		self := particles[i:]
+		for j := range self {
+			a, _ := sample(particles[i].P, self[j].P)
+			if a < g {
+				particles[i].F = a
+				self[j].F = a
+				g = a
+				copy(g1, particles[i].P)
+				copy(g2, self[j].P)
+			}
 		}
-		particles[i].V2 = v2
 	}
 
 	const w, w1, w2 = .5, .8, .1
 	for {
 		for i := range particles {
-			for j := range particles[i].X1 {
+			for j := range particles[i].X {
 				rp, rg := rnd.Float64(), rnd.Float64()
-				particles[i].V1[j] = w*particles[i].V1[j] +
-					w1*rp*(particles[i].P1[j].Mean-particles[i].X1[j].Mean) +
-					w2*rg*(g1[j].Mean-particles[i].X1[j].Mean)
+				particles[i].V[j] = w*particles[i].V[j] +
+					w1*rp*(particles[i].P[j].Mean-particles[i].X[j].Mean) +
+					w2*rg*(g1[j].Mean-particles[i].X[j].Mean)
 			}
-			for j := range particles[i].X2 {
-				rp, rg := rnd.Float64(), rnd.Float64()
-				particles[i].V2[j] = w*particles[i].V2[j] +
-					w1*rp*(particles[i].P2[j].Mean-particles[i].X2[j].Mean) +
-					w2*rg*(g2[j].Mean-particles[i].X2[j].Mean)
+			for j := range particles[i].X {
+				particles[i].X[j].Mean += particles[i].V[j]
 			}
-			for j := range particles[i].X1 {
-				particles[i].X1[j].Mean += particles[i].V1[j]
-			}
-			for j := range particles[i].X2 {
-				particles[i].X2[j].Mean += particles[i].V2[j]
-			}
-			a, s := sample(particles[i].X1, particles[i].X2)
-			if a < particles[i].P {
-				copy(particles[i].P1, particles[i].X1)
-				copy(particles[i].P2, particles[i].X2)
-				particles[i].P = a
-				if a < g {
-					g = a
-					fmt.Println(g, s)
-					copy(g1, particles[i].P1)
-					copy(g2, particles[i].P2)
-					x := shownum(g1)
-					y := shownum(g2)
-					if x*y == target {
-						return
+		}
+		for i := range particles {
+			self := particles[i:]
+			for j := range self {
+				a, s := sample(particles[i].X, self[j].X)
+				if a < particles[i].F || a < particles[j].F {
+					copy(particles[i].P, particles[i].X)
+					copy(self[j].P, self[j].X)
+					particles[i].F = a
+					self[j].F = a
+					if a < g {
+						g = a
+						fmt.Println(g, s)
+						copy(g1, particles[i].P)
+						copy(g2, self[j].P)
+						x := shownum(g1)
+						y := shownum(g2)
+						if x*y == target {
+							return
+						}
 					}
 				}
 			}
