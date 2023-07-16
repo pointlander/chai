@@ -10,6 +10,10 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
 )
 
 var (
@@ -43,6 +47,30 @@ func main() {
 			}
 		}
 		return
+	}
+
+	rnd := rand.New(rand.NewSource(1))
+	samples := make(plotter.Values, 0, 8)
+	for i := 0; i < 1000; i++ {
+		x := 0
+		for i := 0; i < 10; i++ {
+			x += *FlagTarget % (rnd.Intn(77) + 1)
+		}
+		samples = append(samples, float64(x))
+	}
+
+	p := plot.New()
+	p.Title.Text = "residulas"
+
+	histogram, err := plotter.NewHist(samples, 10)
+	if err != nil {
+		panic(err)
+	}
+	p.Add(histogram)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "residuals.png")
+	if err != nil {
+		panic(err)
 	}
 }
 
