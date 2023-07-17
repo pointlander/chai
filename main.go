@@ -257,19 +257,19 @@ func Swarm(seed int) bool {
 	sample := func(a []int) (avg, sd float64) {
 		i := 0
 		for i < samples {
-			cost := 0
+			cost := uint64(0)
 			for _, value := range a {
-				x := 0
-				e := 1
+				x := uint64(0)
+				e := uint64(1)
 				for _, v := range particles[value].X {
 					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
 						x += e
 					}
 					e *= 2
 				}
-				xx := 0
+				xx := uint64(0)
 				if x > 0 {
-					xx = target % x
+					xx = uint64(target) % x
 				}
 				cost += xx
 			}
