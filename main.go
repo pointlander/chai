@@ -244,11 +244,12 @@ func Swarm(seed int) bool {
 		F float64
 		V []float64
 	}
-	particles := make([]Particle, rnd.Intn(4)+1)
+	length := rnd.Intn(4) + 1
+	particles := make([]Particle, length)
 	pair := func() []int {
 		a := make([]int, Width)
 		for i := range a {
-			a[i] = rnd.Intn(len(particles))
+			a[i] = rnd.Intn(length)
 		}
 		return a
 	}
