@@ -204,6 +204,11 @@ func Bits() {
 	shownum(b)
 }
 
+const (
+	// Width is the width of the swarm
+	Width = 2
+)
+
 func Swarm(seed int) bool {
 	fmt.Println(seed)
 	rnd := rand.New(rand.NewSource(int64(seed)))
@@ -228,25 +233,44 @@ func Swarm(seed int) bool {
 		return x
 	}
 
+	g := math.MaxFloat64
+	g1 := make([][]Distribution, Width)
+	for i := range g1 {
+		g1[i] = make([]Distribution, n)
+	}
+	type Particle struct {
+		X []Distribution
+		P []Distribution
+		F float64
+		V []float64
+	}
+	particles := make([]Particle, rnd.Intn(4)+1)
+	pair := func() []int {
+		a := make([]int, Width)
+		for i := range a {
+			a[i] = rnd.Intn(len(particles))
+		}
+		return a
+	}
 	samples := 16 * 1024
-	sample := func(a []Distribution) (avg, sd float64) {
+	sample := func(a []int) (avg, sd float64) {
 		i := 0
 		for i < samples {
-			x := 0
-			e := 1
-			for _, v := range a {
-				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
-					x += e
+			cost := 0
+			for _, value := range a {
+				x := 0
+				e := 1
+				for _, v := range particles[value].X {
+					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						x += e
+					}
+					e *= 2
 				}
-				e *= 2
-			}
-			xx := 0
-			if x > 0 {
-				xx = target % x
-			}
-			cost := target - xx
-			if cost < 0 {
-				cost = -cost
+				xx := 0
+				if x > 0 {
+					xx = target % x
+				}
+				cost += xx
 			}
 			avg += float64(cost)
 			sd += float64(cost) * float64(cost)
@@ -256,16 +280,6 @@ func Swarm(seed int) bool {
 		sd = math.Sqrt(sd/float64(samples) - avg*avg)
 		return avg, sd
 	}
-
-	g := math.MaxFloat64
-	g1 := make([]Distribution, n)
-	type Particle struct {
-		X []Distribution
-		P []Distribution
-		F float64
-		V []float64
-	}
-	particles := make([]Particle, rnd.Intn(4)+1)
 	for i := range particles {
 		a := make([]Distribution, 0, n)
 		for i := 0; i < n; i++ {
@@ -282,20 +296,23 @@ func Swarm(seed int) bool {
 		particles[i].V = v
 	}
 
-	for i := range particles {
-		a, s := sample(particles[i].P)
-		if a < g {
-			particles[i].F = a
+	for range particles {
+		set := pair()
+		a, s := sample(set)
+		if a <= g {
 			g = a
 			fmt.Println(g, s)
-			copy(g1, particles[i].P)
-			x := shownum(g1)
-			if target%x == 0 {
-				if x == 1 || x == target {
-					return false
+			for i, item := range set {
+				particles[item].F = a
+				copy(g1[i], particles[item].P)
+				x := shownum(g1[i])
+				if target%x == 0 {
+					if x == 1 || x == target {
+						return false
+					}
+					fmt.Println(target / x)
+					return true
 				}
-				fmt.Println(target / x)
-				return true
 			}
 		}
 	}
@@ -307,28 +324,31 @@ func Swarm(seed int) bool {
 				rp, rg := rnd.Float64(), rnd.Float64()
 				particles[i].V[j] = w*particles[i].V[j] +
 					w1*rp*(particles[i].P[j].Mean-particles[i].X[j].Mean) +
-					w2*rg*(g1[j].Mean-particles[i].X[j].Mean)
+					w2*rg*(g1[rnd.Intn(len(g1))][j].Mean-particles[i].X[j].Mean)
 			}
 			for j := range particles[i].X {
 				particles[i].X[j].Mean += particles[i].V[j]
 			}
 		}
-		for i := range particles {
-			a, s := sample(particles[i].X)
-			if a < particles[i].F {
-				copy(particles[i].P, particles[i].X)
-				particles[i].F = a
-				if a < g {
-					g = a
-					fmt.Println(g, s)
-					copy(g1, particles[i].P)
-					x := shownum(g1)
-					if target%x == 0 {
-						if x == 1 || x == target {
-							return false
+		for range particles {
+			set := pair()
+			a, s := sample(set)
+			for i, item := range set {
+				if a < particles[item].F {
+					particles[item].F = a
+					copy(particles[item].P, particles[item].X)
+					if a <= g {
+						g = a
+						fmt.Println(g, s)
+						copy(g1[i], particles[item].P)
+						x := shownum(g1[i])
+						if target%x == 0 {
+							if x == 1 || x == target {
+								return false
+							}
+							fmt.Println(target / x)
+							return true
 						}
-						fmt.Println(target / x)
-						return true
 					}
 				}
 			}
