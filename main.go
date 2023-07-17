@@ -265,7 +265,7 @@ func Swarm(seed int) bool {
 		F float64
 		V []float64
 	}
-	particles := make([]Particle, rnd.Intn(1024)+1)
+	particles := make([]Particle, rnd.Intn(4)+1)
 	for i := range particles {
 		a := make([]Distribution, 0, n)
 		for i := 0; i < n; i++ {
