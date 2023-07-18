@@ -322,10 +322,11 @@ func Swarm(seed int) bool {
 				if x == 1 || x == target {
 					exit = true
 					status = false
+				} else {
+					fmt.Println(target / x)
+					exit = true
+					status = true
 				}
-				fmt.Println(target / x)
-				exit = true
-				status = true
 			}
 		}
 	})
@@ -373,10 +374,11 @@ func Swarm(seed int) bool {
 						if x == 1 || x == target {
 							exit = true
 							status = false
+						} else {
+							fmt.Println(target / x)
+							exit = true
+							status = true
 						}
-						fmt.Println(target / x)
-						exit = true
-						status = true
 					}
 				}
 			}
