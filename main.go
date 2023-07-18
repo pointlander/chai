@@ -252,7 +252,7 @@ func Swarm(seed int) bool {
 		}
 		return a
 	}
-	samples := 16 * 1024
+	samples := 1024
 	sample := func(a []int) (avg, sd float64) {
 		i := 0
 		for i < samples {
