@@ -11,6 +11,8 @@ import (
 	"math/rand"
 	"sort"
 
+	"github.com/pointlander/pagerank"
+
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -233,11 +235,8 @@ func Swarm(seed int) bool {
 		return x
 	}
 
-	g := math.MaxFloat64
-	g1 := make([][]Distribution, Width)
-	for i := range g1 {
-		g1[i] = make([]Distribution, n)
-	}
+	g := 0.0
+	g1 := make([]Distribution, n)
 	type Particle struct {
 		X []Distribution
 		P []Distribution
@@ -297,62 +296,93 @@ func Swarm(seed int) bool {
 		particles[i].V = v
 	}
 
+	graph := pagerank.NewGraph64()
+	values := make([]float64, length)
 	for range particles {
 		set := pair()
-		a, s := sample(set)
-		if a <= g {
-			g = a
-			fmt.Println(g, s)
-			for i, item := range set {
-				particles[item].F = a
-				copy(g1[i], particles[item].P)
-				x := shownum(g1[i])
-				if target%x == 0 {
-					if x == 1 || x == target {
-						return false
-					}
-					fmt.Println(target / x)
-					return true
+		a, _ := sample(set)
+		values[set[0]] = a
+		values[set[1]] = a
+		graph.Link(uint64(set[0]), uint64(set[1]), 2*float64(target)-a)
+		graph.Link(uint64(set[1]), uint64(set[0]), 2*float64(target)-a)
+	}
+	exit := false
+	status := false
+	graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
+		if exit {
+			return
+		}
+		if rank >= g {
+			g = rank
+			fmt.Println(g)
+			particles[node].F = rank
+			copy(g1, particles[node].P)
+			x := shownum(g1)
+			if target%x == 0 {
+				if x == 1 || x == target {
+					exit = true
+					status = false
 				}
+				fmt.Println(target / x)
+				exit = true
+				status = true
 			}
 		}
+	})
+	if exit {
+		return status
 	}
 
 	w, w1, w2 := rnd.Float64(), rnd.Float64(), rnd.Float64()
-	for j := 0; j < rnd.Intn(3)+1; j++ {
+	for j := 0; j < rnd.Intn(16)+1; j++ {
 		for i := range particles {
 			for j := range particles[i].X {
 				rp, rg := rnd.Float64(), rnd.Float64()
 				particles[i].V[j] = w*particles[i].V[j] +
 					w1*rp*(particles[i].P[j].Mean-particles[i].X[j].Mean) +
-					w2*rg*(g1[rnd.Intn(len(g1))][j].Mean-particles[i].X[j].Mean)
+					w2*rg*(g1[j].Mean-particles[i].X[j].Mean)
 			}
 			for j := range particles[i].X {
 				particles[i].X[j].Mean += particles[i].V[j]
 			}
 		}
+		graph := pagerank.NewGraph64()
 		for range particles {
 			set := pair()
-			a, s := sample(set)
-			for i, item := range set {
-				if a < particles[item].F {
-					particles[item].F = a
-					copy(particles[item].P, particles[item].X)
-					if a <= g {
-						g = a
-						fmt.Println(g, s)
-						copy(g1[i], particles[item].P)
-						x := shownum(g1[i])
-						if target%x == 0 {
-							if x == 1 || x == target {
-								return false
-							}
-							fmt.Println(target / x)
-							return true
+			a, _ := sample(set)
+			values[set[0]] = a
+			values[set[1]] = a
+			graph.Link(uint64(set[0]), uint64(set[1]), 2*float64(target)-a)
+			graph.Link(uint64(set[1]), uint64(set[0]), 2*float64(target)-a)
+		}
+		exit := false
+		status := false
+		graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
+			if exit {
+				return
+			}
+			if rank >= particles[node].F {
+				particles[node].F = rank
+				copy(particles[node].P, particles[node].X)
+				if rank >= g {
+					g = rank
+					fmt.Println(g)
+					copy(g1, particles[node].P)
+					x := shownum(g1)
+					if target%x == 0 {
+						if x == 1 || x == target {
+							exit = true
+							status = false
 						}
+						fmt.Println(target / x)
+						exit = true
+						status = true
 					}
 				}
 			}
+		})
+		if exit {
+			return status
 		}
 	}
 	return false
