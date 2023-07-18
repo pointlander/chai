@@ -9,6 +9,7 @@ require (
 	github.com/go-latex/latex v0.0.0-20230307184459-12ec69307ad9 // indirect
 	github.com/go-pdf/fpdf v0.8.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
+	github.com/pointlander/pagerank v0.0.0-20210619221740-830548a59275 // indirect
 	golang.org/x/image v0.7.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	gonum.org/v1/plot v0.13.0 // indirect
