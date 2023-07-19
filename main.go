@@ -86,8 +86,10 @@ func main() {
 		for {
 			if big.NewInt(int64(j)).ProbablyPrime(100) {
 				primes[i] = j
+				j--
 				break
 			}
+			j--
 		}
 	}
 	fmt.Println(primes, primes[0]*primes[1])
