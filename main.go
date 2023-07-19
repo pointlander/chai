@@ -345,7 +345,7 @@ func Gradient(seed int) bool {
 
 const (
 	// Width is the width of the swarm
-	Width = 2
+	Width = 4
 )
 
 // Swarm implements particle swarm optimization for factoring numbers
@@ -394,7 +394,7 @@ func Swarm(seed int) bool {
 	sample := func(a []int) (avg, sd float64) {
 		i := 0
 		for i < samples {
-			cost := uint64(1)
+			cost := uint64(0)
 			for _, value := range a {
 				x := uint64(0)
 				e := uint64(1)
@@ -408,7 +408,7 @@ func Swarm(seed int) bool {
 				if x > 0 {
 					xx = uint64(target) % x
 				}
-				cost *= xx
+				cost += xx
 			}
 			avg += float64(cost)
 			sd += float64(cost) * float64(cost)
@@ -444,6 +444,9 @@ func Swarm(seed int) bool {
 				particles[j].F = a
 				copy(g1, particles[j].P)
 				x := shownum(g1)
+				if x == 0 {
+					return false
+				}
 				if target%x == 0 {
 					if x == 1 || x == target {
 						return false
@@ -481,6 +484,9 @@ func Swarm(seed int) bool {
 						fmt.Println(g)
 						copy(g1, particles[j].P)
 						x := shownum(g1)
+						if x == 0 {
+							return false
+						}
 						if target%x == 0 {
 							if x == 1 || x == target {
 								return false
