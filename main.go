@@ -20,6 +20,8 @@ import (
 )
 
 var (
+	// FlagGraphical graphical mode
+	FlagGraphical = flag.Bool("graphical", false, "graphical mode")
 	// FlagGradient bits mode
 	FlagGradient = flag.Bool("gradient", false, "gradient mode")
 	// FlagNumbers numbers mode
@@ -32,6 +34,15 @@ var (
 
 func main() {
 	flag.Parse()
+
+	if *FlagGraphical {
+		for seed := 1; seed < 1000; seed++ {
+			if Graphical(seed) {
+				return
+			}
+		}
+		return
+	}
 
 	if *FlagGradient {
 		for seed := 1; seed < 1000; seed++ {
@@ -95,6 +106,120 @@ func main() {
 	fmt.Println(primes, primes[0]*primes[1])
 }
 
+// Graphical implements graphical search for factoring numbers
+func Graphical(seed int) bool {
+	fmt.Println("seed", seed)
+	rnd := rand.New(rand.NewSource(int64(seed)))
+	type Distribution struct {
+		Mean   float64
+		StdDev float64
+	}
+	type Node struct {
+		A      []Distribution
+		Weight float64
+	}
+	target := *FlagTarget
+	n := int(math.Ceil(math.Log2(float64(target))))
+	a := make([]Node, 32)
+	for i := range a {
+		for j := 0; j < n; j++ {
+			a[i].A = append(a[i].A, Distribution{Mean: rnd.NormFloat64(), StdDev: rnd.NormFloat64()})
+		}
+	}
+
+	samples := 1024
+	sample := func(a, b []Distribution) (avg, sd float64) {
+		i := 0
+		for i < samples {
+			x := 0
+			y := 0
+			e := 1
+			k := 0
+			for _, v := range a {
+				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+					x += e
+				}
+				e *= 2
+				k++
+			}
+			e = 1
+			k = 0
+			for _, v := range b {
+				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+					y += e
+				}
+				e *= 2
+				k++
+			}
+			xx := 0
+			if x > 0 {
+				xx = target % x
+			}
+			yy := 0
+			if y > 0 {
+				yy = target % y
+			}
+			cost := target*target - yy*xx
+			avg += float64(cost)
+			sd += float64(cost) * float64(cost)
+			i += 1
+		}
+		avg /= float64(samples)
+		sd = math.Sqrt(sd/float64(samples) - avg*avg)
+		return avg, sd
+	}
+
+	shownum := func(a []Distribution) int {
+		x := 0
+		e := 1
+		for _, v := range a {
+			if v.Mean > 0 {
+				x += e
+			}
+			e *= 2
+		}
+		fmt.Println(x)
+		return x
+	}
+
+	for e := 0; e < 16; e++ {
+		graph := pagerank.NewGraph64()
+		for i := range a {
+			remainder := a[i:]
+			for j := range remainder {
+				avg, _ := sample(a[i].A, a[j].A)
+				graph.Link(uint64(i), uint64(j), avg)
+				graph.Link(uint64(j), uint64(i), avg)
+			}
+		}
+		graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
+			a[node].Weight = rank
+		})
+		d := make([]Distribution, n)
+		for i := range a {
+			for j := range d {
+				d[j].Mean += a[i].A[j].Mean * a[i].Weight * rnd.Float64()
+				d[j].StdDev += a[i].A[j].StdDev * a[i].Weight * rnd.Float64()
+			}
+		}
+		a = append(a, Node{A: d})
+		x := shownum(d)
+		if x == 0 {
+			return false
+		}
+		if target%x == 0 {
+			if x == 1 || x == target {
+				return false
+			} else {
+				fmt.Println(target / x)
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Gradient implements pseudo-gradient descent for factoring numbers
 func Gradient(seed int) bool {
 	rnd := rand.New(rand.NewSource(int64(seed)))
 	type Distribution struct {
@@ -223,6 +348,7 @@ const (
 	Width = 2
 )
 
+// Swarm implements particle swarm optimization for factoring numbers
 func Swarm(seed int) bool {
 	fmt.Println("seed", seed)
 	rnd := rand.New(rand.NewSource(int64(seed)))
@@ -406,6 +532,7 @@ func Swarm(seed int) bool {
 	return false
 }
 
+// Numbers implements pseudo-gradient descent to find a factor of the target
 func Numbers() {
 	rnd := rand.New(rand.NewSource(1))
 	type Distribution struct {
