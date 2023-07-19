@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	// FlagBits bits mode
-	FlagBits = flag.Bool("bits", false, "bits mode")
+	// FlagGradient bits mode
+	FlagGradient = flag.Bool("gradient", false, "gradient mode")
 	// FlagNumbers numbers mode
 	FlagNumbers = flag.Bool("numbers", false, "numbers mode")
 	// FlagSwarm swarm mode
@@ -32,8 +32,12 @@ var (
 func main() {
 	flag.Parse()
 
-	if *FlagBits {
-		Bits()
+	if *FlagGradient {
+		for seed := 1; seed < 1000; seed++ {
+			if Gradient(seed) {
+				return
+			}
+		}
 		return
 	}
 
@@ -76,8 +80,8 @@ func main() {
 	}
 }
 
-func Bits() {
-	rnd := rand.New(rand.NewSource(1))
+func Gradient(seed int) bool {
+	rnd := rand.New(rand.NewSource(int64(seed)))
 	type Distribution struct {
 		Mean   float64
 		StdDev float64
@@ -85,17 +89,14 @@ func Bits() {
 	target := *FlagTarget
 	n := int(math.Ceil(math.Log2(float64(target))))
 	a := make([]Distribution, 0, n)
-	b := make([]Distribution, 0, n)
 	for i := 0; i < n; i++ {
-		a = append(a, Distribution{Mean: 0, StdDev: 1})
-		b = append(b, Distribution{Mean: 0, StdDev: 1})
+		a = append(a, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
 	}
 	fmt.Println(n)
 	fmt.Println(a)
-	fmt.Println(b)
-	shownum := func(a []Distribution) {
-		x := 0.0
-		e := 1.0
+	shownum := func(a []Distribution) int {
+		x := 0
+		e := 1
 		for _, v := range a {
 			if v.Mean > 0 {
 				x += e
@@ -103,9 +104,10 @@ func Bits() {
 			e *= 2
 		}
 		fmt.Println(x)
+		return x
 	}
 	samples := 8 * 1024
-	sample := func(a, b []Distribution, ia, ib int, d float64) (avg, sd float64) {
+	sample := func(a, b []Distribution) (avg, sd float64) {
 		i := 0
 		for i < samples {
 			x := 0
@@ -113,9 +115,6 @@ func Bits() {
 			e := 1
 			k := 0
 			for _, v := range a {
-				if k == ia {
-					v.Mean = v.Mean + d
-				}
 				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
 					x += e
 				}
@@ -125,9 +124,6 @@ func Bits() {
 			e = 1
 			k = 0
 			for _, v := range b {
-				if k == ib {
-					v.Mean = v.Mean + d
-				}
 				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
 					y += e
 				}
@@ -142,11 +138,7 @@ func Bits() {
 			if y > 0 {
 				yy = target % y
 			}
-			cost := target - x*y
-			if cost < 0 {
-				cost = -cost
-			}
-			cost += yy + xx
+			cost := yy * xx
 			avg += float64(cost)
 			sd += float64(cost) * float64(cost)
 			i += 1
@@ -156,54 +148,59 @@ func Bits() {
 		return avg, sd
 	}
 
-	avg, sd := sample(a, b, -1, -1, 0)
 	j := 0
-	for j < 1000 {
-		if sd == 0 {
-			break
-		}
+	for j < 33 {
 		type Sample struct {
-			DeltasA []Distribution
-			DeltasB []Distribution
-			Avg     float64
-			Sd      float64
+			A      []Distribution
+			Weight float64
 		}
 		samples := make([]Sample, 16)
 		for i := range samples {
-			samples[i].DeltasA = make([]Distribution, len(a))
-			copy(samples[i].DeltasA, a)
-			for j := range samples[i].DeltasA {
-				samples[i].DeltasA[j].Mean += rnd.NormFloat64()
-				samples[i].DeltasA[j].StdDev += rnd.NormFloat64()
-				if samples[i].DeltasA[j].StdDev < 0 {
-					samples[i].DeltasA[j].StdDev = -samples[i].DeltasA[j].StdDev
+			samples[i].A = make([]Distribution, len(a))
+			copy(samples[i].A, a)
+			for j := range samples[i].A {
+				samples[i].A[j].Mean += rnd.NormFloat64()
+				samples[i].A[j].StdDev += rnd.NormFloat64()
+				if samples[i].A[j].StdDev < 0 {
+					samples[i].A[j].StdDev = -samples[i].A[j].StdDev
 				}
 			}
-			samples[i].DeltasB = make([]Distribution, len(b))
-			copy(samples[i].DeltasB, b)
-			for j := range samples[i].DeltasB {
-				samples[i].DeltasB[j].Mean += rnd.NormFloat64()
-				samples[i].DeltasB[j].StdDev += rnd.NormFloat64()
-				if samples[i].DeltasB[j].StdDev < 0 {
-					samples[i].DeltasB[j].StdDev = -samples[i].DeltasB[j].StdDev
-				}
-			}
-			samples[i].Avg, samples[i].Sd = sample(samples[i].DeltasA, samples[i].DeltasB, -1, -1, 0)
+
 		}
-		sort.Slice(samples, func(i, j int) bool {
-			return samples[i].Avg < samples[j].Avg
+		graph := pagerank.NewGraph64()
+		for i := range samples {
+			remainder := samples[i:]
+			for j := range remainder {
+				avg, _ := sample(samples[i].A, remainder[j].A)
+				graph.Link(uint64(i), uint64(j), float64(target)*float64(target)-avg)
+				graph.Link(uint64(j), uint64(i), float64(target)*float64(target)-avg)
+			}
+		}
+		graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
+			samples[node].Weight = rank
 		})
-		avg = samples[1].Avg
-		sd = samples[1].Sd
-		a = samples[1].DeltasA
-		b = samples[1].DeltasB
-		fmt.Println(j, avg, sd)
+		sort.Slice(samples, func(i, j int) bool {
+			return samples[i].Weight > samples[j].Weight
+		})
+
+		copy(a, samples[0].A)
+		x := shownum(a)
+		if x == 0 {
+			return false
+		}
+		if target%x == 0 {
+			if x == 1 || x == target {
+				return false
+			} else {
+				fmt.Println(target / x)
+				return true
+			}
+		}
 		j++
 	}
 	fmt.Println(a)
-	fmt.Println(b)
 	shownum(a)
-	shownum(b)
+	return false
 }
 
 const (
