@@ -373,7 +373,7 @@ func Swarm(seed int) bool {
 		return x
 	}
 
-	g := 0.0
+	g := math.MaxFloat64
 	g1 := make([]Distribution, n)
 	type Particle struct {
 		X []Distribution
@@ -434,42 +434,26 @@ func Swarm(seed int) bool {
 		particles[i].V = v
 	}
 
-	graph := pagerank.NewGraph64()
-	values := make([]float64, length)
 	for range particles {
 		set := pair()
 		a, _ := sample(set)
-		values[set[0]] = a
-		values[set[1]] = a
-		graph.Link(uint64(set[0]), uint64(set[1]), 2*float64(target)-a)
-		graph.Link(uint64(set[1]), uint64(set[0]), 2*float64(target)-a)
-	}
-	exit := false
-	status := false
-	graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
-		if exit {
-			return
-		}
-		if rank >= g {
-			g = rank
+		if a <= g {
+			g = a
 			fmt.Println(g)
-			particles[node].F = rank
-			copy(g1, particles[node].P)
-			x := shownum(g1)
-			if target%x == 0 {
-				if x == 1 || x == target {
-					exit = true
-					status = false
-				} else {
-					fmt.Println(target / x)
-					exit = true
-					status = true
+			for _, j := range set {
+				particles[j].F = a
+				copy(g1, particles[j].P)
+				x := shownum(g1)
+				if target%x == 0 {
+					if x == 1 || x == target {
+						return false
+					} else {
+						fmt.Println(target / x)
+						return true
+					}
 				}
 			}
 		}
-	})
-	if exit {
-		return status
 	}
 
 	w, w1, w2 := rnd.Float64(), rnd.Float64(), rnd.Float64()
@@ -485,48 +469,29 @@ func Swarm(seed int) bool {
 				particles[i].X[j].Mean += particles[i].V[j]
 			}
 		}
-		graph := pagerank.NewGraph64()
-		set := make([]int, Width)
-		for i := range particles {
-			for j := range particles[i:] {
-				set[0] = i
-				set[1] = i + j
-				a, _ := sample(set)
-				values[set[0]] = a
-				values[set[1]] = a
-				graph.Link(uint64(set[0]), uint64(set[1]), float64(target)*float64(target)-a)
-				graph.Link(uint64(set[1]), uint64(set[0]), float64(target)*float64(target)-a)
-			}
-		}
-		exit := false
-		status := false
-		graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
-			if exit {
-				return
-			}
-			if rank >= particles[node].F {
-				particles[node].F = rank
-				copy(particles[node].P, particles[node].X)
-				if rank >= g {
-					g = rank
-					fmt.Println(g)
-					copy(g1, particles[node].P)
-					x := shownum(g1)
-					if target%x == 0 {
-						if x == 1 || x == target {
-							exit = true
-							status = false
-						} else {
-							fmt.Println(target / x)
-							exit = true
-							status = true
+		for range particles {
+			set := pair()
+			a, _ := sample(set)
+			for _, j := range set {
+				if a <= particles[j].F {
+					particles[j].F = a
+					copy(particles[j].P, particles[j].X)
+					if a <= g {
+						g = a
+						fmt.Println(g)
+						copy(g1, particles[j].P)
+						x := shownum(g1)
+						if target%x == 0 {
+							if x == 1 || x == target {
+								return false
+							} else {
+								fmt.Println(target / x)
+								return true
+							}
 						}
 					}
 				}
 			}
-		})
-		if exit {
-			return status
 		}
 	}
 	return false
