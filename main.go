@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"math"
+	"math/big"
 	"math/rand"
 	"sort"
 
@@ -47,7 +48,7 @@ func main() {
 	}
 
 	if *FlagSwarm {
-		for seed := 1; seed < 1000; seed++ {
+		for seed := 1; seed != 0; seed++ {
 			if Swarm(seed) {
 				return
 			}
@@ -78,6 +79,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	j := math.MaxInt32
+	primes := make([]int, 2)
+	for i := 0; i < 2; i++ {
+		for {
+			if big.NewInt(int64(j)).ProbablyPrime(100) {
+				primes[i] = j
+				break
+			}
+		}
+	}
+	fmt.Println(primes, primes[0]*primes[1])
 }
 
 func Gradient(seed int) bool {
@@ -240,7 +253,7 @@ func Swarm(seed int) bool {
 		F float64
 		V []float64
 	}
-	length := rnd.Intn(4) + 1
+	length := rnd.Intn(16) + 1
 	particles := make([]Particle, length)
 	pair := func() []int {
 		a := make([]int, Width)
