@@ -209,7 +209,7 @@ const (
 )
 
 func Swarm(seed int) bool {
-	fmt.Println(seed)
+	fmt.Println("seed", seed)
 	rnd := rand.New(rand.NewSource(int64(seed)))
 	type Distribution struct {
 		Mean   float64
@@ -253,7 +253,7 @@ func Swarm(seed int) bool {
 	sample := func(a []int) (avg, sd float64) {
 		i := 0
 		for i < samples {
-			cost := uint64(0)
+			cost := uint64(1)
 			for _, value := range a {
 				x := uint64(0)
 				e := uint64(1)
@@ -267,7 +267,7 @@ func Swarm(seed int) bool {
 				if x > 0 {
 					xx = uint64(target) % x
 				}
-				cost += xx
+				cost *= xx
 			}
 			avg += float64(cost)
 			sd += float64(cost) * float64(cost)
@@ -345,13 +345,17 @@ func Swarm(seed int) bool {
 			}
 		}
 		graph := pagerank.NewGraph64()
-		for range particles {
-			set := pair()
-			a, _ := sample(set)
-			values[set[0]] = a
-			values[set[1]] = a
-			graph.Link(uint64(set[0]), uint64(set[1]), 2*float64(target)-a)
-			graph.Link(uint64(set[1]), uint64(set[0]), 2*float64(target)-a)
+		set := make([]int, Width)
+		for i := range particles {
+			for j := range particles[i:] {
+				set[0] = i
+				set[1] = i + j
+				a, _ := sample(set)
+				values[set[0]] = a
+				values[set[1]] = a
+				graph.Link(uint64(set[0]), uint64(set[1]), float64(target)*float64(target)-a)
+				graph.Link(uint64(set[1]), uint64(set[0]), float64(target)*float64(target)-a)
+			}
 		}
 		exit := false
 		status := false
