@@ -80,7 +80,7 @@ func main() {
 		panic(err)
 	}
 
-	j := math.MaxInt32
+	j := math.MaxUint32 >> 16
 	primes := make([]int, 2)
 	for i := 0; i < 2; i++ {
 		for {
