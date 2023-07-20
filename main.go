@@ -455,7 +455,7 @@ func Swarm(seed int) bool {
 					if x == 1 || x == target {
 						return false
 					} else {
-						fmt.Println(target / x)
+						fmt.Println("lucky", target/x)
 						return true
 					}
 				}
@@ -507,7 +507,7 @@ func Swarm(seed int) bool {
 							if x == 1 || x == target {
 								return false
 							} else {
-								fmt.Println(target / x)
+								fmt.Println(target/x, w, w1, w2)
 								return true
 							}
 						}
