@@ -469,7 +469,8 @@ func Swarm(seed int) bool {
 	}
 
 	w, w1, w2 := rnd.Float64(), rnd.Float64(), rnd.Float64()
-	for j := 0; j < rnd.Intn(16)+1; j++ {
+	for {
+		current := g
 		for i := range particles {
 			for j := range particles[i].X {
 				rp, rg := rnd.Float64(), rnd.Float64()
@@ -521,8 +522,10 @@ func Swarm(seed int) bool {
 				copy(g1, d)
 			}
 		}
+		if g == current {
+			return false
+		}
 	}
-	return false
 }
 
 // Numbers implements pseudo-gradient descent to find a factor of the target
