@@ -91,6 +91,68 @@ func main() {
 		panic(err)
 	}
 
+	{
+		rnd := rand.New(rand.NewSource(1))
+
+		type Distribution struct {
+			Mean   float64
+			StdDev float64
+		}
+		target := *FlagTarget
+		n := int(math.Ceil(math.Log2(float64(target))))
+		a := make([][]Distribution, 20)
+		for j := range a {
+			a[j] = make([]Distribution, 0, n)
+			for i := 0; i < n; i++ {
+				a[j] = append(a[j], Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+			}
+		}
+
+		samples := 64 * 1024
+		i := 0
+		var avg, sd float64
+		values := make(plotter.Values, 0, 8)
+		for i < samples {
+			cost := uint64(0)
+			for _, a := range a {
+				x := uint64(0)
+				e := uint64(1)
+				for _, v := range a {
+					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						x += e
+					}
+					e *= 2
+				}
+				xx := uint64(0)
+				if x > 0 {
+					xx = uint64(target) % x
+				}
+				cost += xx
+			}
+			values = append(values, float64(cost))
+			avg += float64(cost)
+			sd += float64(cost) * float64(cost)
+			i += 1
+		}
+		avg /= float64(samples)
+		sd = math.Sqrt(sd/float64(samples) - avg*avg)
+		fmt.Println(avg, sd)
+
+		p := plot.New()
+		p.Title.Text = "binary"
+
+		histogram, err := plotter.NewHist(values, 20)
+		if err != nil {
+			panic(err)
+		}
+		p.Add(histogram)
+
+		err = p.Save(8*vg.Inch, 8*vg.Inch, "binary.png")
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	j := math.MaxUint32 >> 16
 	primes := make([]int, 2)
 	for i := 0; i < 2; i++ {
