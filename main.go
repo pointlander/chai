@@ -440,10 +440,14 @@ func Swarm(seed int) bool {
 		if a <= g {
 			g = a
 			fmt.Println(g)
+			d := make([]Distribution, n)
 			for _, j := range set {
 				particles[j].F = a
-				copy(g1, particles[j].P)
-				x := shownum(g1)
+				for k := range particles[j].P {
+					d[k].Mean += particles[j].P[k].Mean
+					d[k].StdDev += particles[j].P[k].StdDev
+				}
+				x := shownum(particles[j].P)
 				if x == 0 {
 					return false
 				}
@@ -456,6 +460,11 @@ func Swarm(seed int) bool {
 					}
 				}
 			}
+			for k := range d {
+				d[k].Mean /= float64(len(set))
+				d[k].StdDev /= float64(len(set))
+			}
+			copy(g1, d)
 		}
 	}
 
@@ -475,6 +484,8 @@ func Swarm(seed int) bool {
 		for range particles {
 			set := pair()
 			a, _ := sample(set)
+			d := make([]Distribution, n)
+			s := false
 			for _, j := range set {
 				if a <= particles[j].F {
 					particles[j].F = a
@@ -482,8 +493,12 @@ func Swarm(seed int) bool {
 					if a <= g {
 						g = a
 						fmt.Println(g)
-						copy(g1, particles[j].P)
-						x := shownum(g1)
+						s = true
+						for k := range particles[j].P {
+							d[k].Mean += particles[j].P[k].Mean
+							d[k].StdDev += particles[j].P[k].StdDev
+						}
+						x := shownum(particles[j].P)
 						if x == 0 {
 							return false
 						}
@@ -497,6 +512,13 @@ func Swarm(seed int) bool {
 						}
 					}
 				}
+			}
+			if s {
+				for k := range d {
+					d[k].Mean /= float64(len(set))
+					d[k].StdDev /= float64(len(set))
+				}
+				copy(g1, d)
 			}
 		}
 	}
