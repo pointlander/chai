@@ -32,6 +32,18 @@ var (
 	FlagTarget = flag.Int("target", 77, "target value")
 )
 
+// Norm is the normal distribution
+func Norm(x, mean, std float64) float64 {
+	x -= mean
+	return math.Exp(-x*x/(2*std*std)) / (std * math.Sqrt(2*math.Pi))
+}
+
+// DNorm is the derivative of the normal distribution
+func DNorm(x, mean, std float64) float64 {
+	x -= mean
+	return x * math.Exp(-x*x/(2*std*std)) / (std * std * std * math.Sqrt(2*math.Pi))
+}
+
 func main() {
 	flag.Parse()
 
