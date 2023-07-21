@@ -44,6 +44,10 @@ func DNorm(x, mean, std float64) float64 {
 	return -x * math.Exp(-(x*x)/(2*std*std)) / (std * std * std * math.Sqrt(2*math.Pi))
 }
 
+func mod(a, b int) int {
+	return (a%b + b) % b
+}
+
 func main() {
 	flag.Parse()
 
@@ -123,11 +127,11 @@ func main() {
 		samples := 64 * 1024
 		sample := func(a [][]Distribution, only int) (d []float64, avg, sd float64) {
 			for i := 0; i < samples; i++ {
-				cost := uint64(0)
+				cost := 0
 				count := 0
 				for _, a := range a {
-					x := uint64(0)
-					e := uint64(1)
+					x := 0
+					e := 1
 					for _, v := range a {
 						mean := 0.0
 						if count == only || only == -1 {
@@ -139,9 +143,9 @@ func main() {
 						e *= 2
 						count++
 					}
-					xx := uint64(0)
+					xx := 0
 					if x > 0 {
-						xx = uint64(target) % x
+						xx = mod(target, x) //+ mod(-target, x)
 					}
 					cost += xx
 				}
@@ -169,18 +173,24 @@ func main() {
 			return x
 		}
 
-		for e := 0; e < 256; e++ {
-			_, avg, sd := sample(a, -1)
-			fmt.Println(e, avg, sd)
+		for e := 0; e < 10; e++ {
 			for i := range a {
+				_, avg, sd := sample(a, -1)
+				//fmt.Println(e, avg, sd)
 				for j := range a[i] {
-					_, davg, _ := sample(a, i*10+j)
-					a[i][j].Mean -= avg / davg
+					//_, davg, _ := sample(a, i*10+j)
+					fmt.Println(e, a[i][j].Mean, avg, sd)
+					if rnd.Intn(2) == 0 {
+						a[i][j].Mean -= .1 * Norm(a[i][j].Mean, avg, sd) / DNorm(a[i][j].Mean, avg, sd)
+					} else {
+						a[i][j].Mean += .1 * Norm(a[i][j].Mean, avg, sd) / DNorm(a[i][j].Mean, avg, sd)
+					}
 				}
 			}
 		}
 
 		for i := range a {
+			fmt.Println(a[i])
 			x := shownum(a[i])
 			if x == 0 {
 				continue
