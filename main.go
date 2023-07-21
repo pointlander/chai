@@ -100,7 +100,7 @@ func main() {
 		}
 		target := *FlagTarget
 		n := int(math.Ceil(math.Log2(float64(target))))
-		a := make([][]Distribution, 20)
+		a := make([][]Distribution, 10)
 		for j := range a {
 			a[j] = make([]Distribution, 0, n)
 			for i := 0; i < n; i++ {
@@ -109,41 +109,84 @@ func main() {
 		}
 
 		samples := 64 * 1024
-		i := 0
-		var avg, sd float64
-		values := make(plotter.Values, 0, 8)
-		only := 0
-		for i < samples {
-			cost := uint64(0)
-			count := 0
-			for _, a := range a {
-				x := uint64(0)
-				e := uint64(1)
-				for _, v := range a {
-					mean := 0.0
-					if count == only {
-						mean = v.Mean
+		sample := func(a [][]Distribution, only int) (d []float64, avg, sd float64) {
+			for i := 0; i < samples; i++ {
+				cost := uint64(0)
+				count := 0
+				for _, a := range a {
+					x := uint64(0)
+					e := uint64(1)
+					for _, v := range a {
+						mean := 0.0
+						if count == only || only == -1 {
+							mean = v.Mean
+						}
+						if (rnd.NormFloat64()+mean)*v.StdDev > 0 {
+							x += e
+						}
+						e *= 2
+						count++
 					}
-					if (rnd.NormFloat64()+mean)*v.StdDev > 0 {
-						x += e
+					xx := uint64(0)
+					if x > 0 {
+						xx = uint64(target) % x
 					}
-					e *= 2
-					count++
+					cost += xx
 				}
-				xx := uint64(0)
-				if x > 0 {
-					xx = uint64(target) % x
-				}
-				cost += xx
+				d = append(d, float64(cost))
+				avg += float64(cost)
+				sd += float64(cost) * float64(cost)
 			}
-			values = append(values, float64(cost))
-			avg += float64(cost)
-			sd += float64(cost) * float64(cost)
-			i += 1
+			avg /= float64(samples)
+			sd = math.Sqrt(sd/float64(samples) - avg*avg)
+			return d, avg, sd
 		}
-		avg /= float64(samples)
-		sd = math.Sqrt(sd/float64(samples) - avg*avg)
+		d, avg, sd := sample(a, -1)
 		fmt.Println(avg, sd)
+
+		shownum := func(a []Distribution) int {
+			x := 0
+			e := 1
+			for _, v := range a {
+				if v.Mean > 0 {
+					x += e
+				}
+				e *= 2
+			}
+			fmt.Println(x)
+			return x
+		}
+
+		for e := 0; e < 256; e++ {
+			_, avg, sd := sample(a, -1)
+			fmt.Println(e, avg, sd)
+			for i := range a {
+				for j := range a[i] {
+					_, davg, _ := sample(a, i*10+j)
+					a[i][j].Mean -= avg / davg
+				}
+			}
+		}
+
+		for i := range a {
+			x := shownum(a[i])
+			if x == 0 {
+				continue
+			}
+			if target%x == 0 {
+				if x == 1 || x == target {
+					continue
+				} else {
+					fmt.Println(x, target/x)
+					return
+				}
+			}
+		}
+
+		values := make(plotter.Values, 0, 8)
+		for _, v := range d {
+			values = append(values, v)
+		}
 
 		p := plot.New()
 		p.Title.Text = "binary"
