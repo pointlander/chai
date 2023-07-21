@@ -112,16 +112,23 @@ func main() {
 		i := 0
 		var avg, sd float64
 		values := make(plotter.Values, 0, 8)
+		only := 0
 		for i < samples {
 			cost := uint64(0)
+			count := 0
 			for _, a := range a {
 				x := uint64(0)
 				e := uint64(1)
 				for _, v := range a {
-					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+					mean := 0.0
+					if count == only {
+						mean = v.Mean
+					}
+					if (rnd.NormFloat64()+mean)*v.StdDev > 0 {
 						x += e
 					}
 					e *= 2
+					count++
 				}
 				xx := uint64(0)
 				if x > 0 {
