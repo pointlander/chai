@@ -20,6 +20,8 @@ import (
 )
 
 var (
+	// FlagNewton newton's method
+	FlagNewton = flag.Bool("newton", false, "newton's method")
 	// FlagGraphical graphical mode
 	FlagGraphical = flag.Bool("graphical", false, "graphical mode")
 	// FlagGradient bits mode
@@ -46,6 +48,11 @@ func DNorm(x, mean, std float64) float64 {
 
 func main() {
 	flag.Parse()
+
+	if *FlagNewton {
+		Newton()
+		return
+	}
 
 	if *FlagGraphical {
 		for seed := 1; seed < 1000; seed++ {
@@ -103,152 +110,6 @@ func main() {
 		panic(err)
 	}
 
-	{
-		rnd := rand.New(rand.NewSource(1))
-
-		type Distribution struct {
-			Mean   float64
-			StdDev float64
-		}
-		target := *FlagTarget
-		n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
-		a := make([][]Distribution, 32)
-		aa := make([][]Distribution, len(a))
-		for j := range a {
-			a[j] = make([]Distribution, 0, n)
-			for i := 0; i < n; i++ {
-				a[j] = append(a[j], Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
-			}
-			aa[j] = make([]Distribution, len(a[j]))
-			copy(aa[j], a[j])
-		}
-
-		size := int(math.Ceil(math.Log2(float64(target))))
-		t := make([]Distribution, 0, size)
-		for i := 0; i < size; i++ {
-			t = append(t, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
-		}
-
-		samples := 8 * 1024
-		sample := func(t []Distribution, a [][]Distribution) (d []float64, avg, sd float64) {
-			for i := 0; i < samples; i++ {
-				cost := 0.0
-				count := 0
-				for _, a := range a {
-					x := uint64(0)
-					e := uint64(1)
-					for _, v := range a {
-						if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
-							x += e
-						}
-						e *= 2
-						count++
-					}
-					tt := uint64(0)
-					e = 1
-					for _, v := range t {
-						if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
-							tt += e
-						}
-						e *= 2
-					}
-					xx := uint64(0)
-					if x > 0 {
-						xx = tt % x
-					}
-					cost += float64(xx) + math.Abs(float64(target)-float64(tt))/float64(target)
-				}
-				d = append(d, cost)
-				avg += cost
-				sd += cost * cost
-			}
-			avg /= float64(samples * len(a))
-			sd = math.Sqrt(sd/float64(samples*len(a)) - avg*avg)
-			return d, avg, sd
-		}
-		d, avg, sd := sample(t, a)
-		fmt.Println(avg, sd)
-
-		shownum := func(a []Distribution) int {
-			x := 0
-			e := 1
-			for _, v := range a {
-				if v.Mean > 0 {
-					x += e
-				}
-				e *= 2
-			}
-			return x
-		}
-
-		min := math.MaxFloat64
-	Search:
-		for e := 0; true; e++ {
-			_, avg, sd := sample(t, a)
-			if avg < min {
-				min = avg
-				for j := range a {
-					copy(aa[j], a[j])
-				}
-			} else {
-				for j := range a {
-					copy(a[j], aa[j])
-				}
-			}
-			fmt.Println(e, min)
-			for i := range a {
-				factor := rnd.Float64()
-				for j := range t {
-					if rnd.Intn(2) == 0 {
-						t[j].Mean -= factor * Norm(t[j].Mean, avg, sd) / DNorm(t[j].Mean, avg, sd)
-					} else {
-						t[j].Mean += factor * Norm(t[j].Mean, avg, sd) / DNorm(t[j].Mean, avg, sd)
-					}
-				}
-				for j := range a[i] {
-					if rnd.Intn(2) == 0 {
-						a[i][j].Mean -= factor * Norm(a[i][j].Mean, avg, sd) / DNorm(a[i][j].Mean, avg, sd)
-					} else {
-						a[i][j].Mean += factor * Norm(a[i][j].Mean, avg, sd) / DNorm(a[i][j].Mean, avg, sd)
-					}
-				}
-			}
-			for i := range a {
-				x := shownum(a[i])
-				if x == 0 {
-					continue
-				}
-				if target%x == 0 {
-					if x == 1 || x == target {
-						continue
-					} else {
-						fmt.Println(x, target/x)
-						break Search
-					}
-				}
-			}
-		}
-
-		values := make(plotter.Values, 0, 8)
-		for _, v := range d {
-			values = append(values, v)
-		}
-
-		p := plot.New()
-		p.Title.Text = "binary"
-
-		histogram, err := plotter.NewHist(values, 20)
-		if err != nil {
-			panic(err)
-		}
-		p.Add(histogram)
-
-		err = p.Save(8*vg.Inch, 8*vg.Inch, "binary.png")
-		if err != nil {
-			panic(err)
-		}
-	}
-
 	j := math.MaxUint32 >> 16
 	primes := make([]int, 2)
 	for i := 0; i < 2; i++ {
@@ -262,6 +123,153 @@ func main() {
 		}
 	}
 	fmt.Println(primes, primes[0]*primes[1])
+}
+
+// Newton implements newton's method for factoring numbers
+func Newton() {
+	rnd := rand.New(rand.NewSource(1))
+
+	type Distribution struct {
+		Mean   float64
+		StdDev float64
+	}
+	target := *FlagTarget
+	n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
+	a := make([][]Distribution, 32)
+	aa := make([][]Distribution, len(a))
+	for j := range a {
+		a[j] = make([]Distribution, 0, n)
+		for i := 0; i < n; i++ {
+			a[j] = append(a[j], Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+		}
+		aa[j] = make([]Distribution, len(a[j]))
+		copy(aa[j], a[j])
+	}
+
+	size := int(math.Ceil(math.Log2(float64(target))))
+	t := make([]Distribution, 0, size)
+	for i := 0; i < size; i++ {
+		t = append(t, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+	}
+
+	samples := 8 * 1024
+	sample := func(t []Distribution, a [][]Distribution) (d []float64, avg, sd float64) {
+		for i := 0; i < samples; i++ {
+			cost := 0.0
+			count := 0
+			for _, a := range a {
+				x := uint64(0)
+				e := uint64(1)
+				for _, v := range a {
+					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						x += e
+					}
+					e *= 2
+					count++
+				}
+				tt := uint64(0)
+				e = 1
+				for _, v := range t {
+					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						tt += e
+					}
+					e *= 2
+				}
+				xx := uint64(0)
+				if x > 0 {
+					xx = tt % x
+				}
+				cost += float64(xx) + math.Abs(float64(target)-float64(tt))/float64(target)
+			}
+			d = append(d, cost)
+			avg += cost
+			sd += cost * cost
+		}
+		avg /= float64(samples * len(a))
+		sd = math.Sqrt(sd/float64(samples*len(a)) - avg*avg)
+		return d, avg, sd
+	}
+	d, avg, sd := sample(t, a)
+	fmt.Println(avg, sd)
+
+	shownum := func(a []Distribution) int {
+		x := 0
+		e := 1
+		for _, v := range a {
+			if v.Mean > 0 {
+				x += e
+			}
+			e *= 2
+		}
+		return x
+	}
+
+	min := math.MaxFloat64
+Search:
+	for e := 0; true; e++ {
+		_, avg, sd := sample(t, a)
+		if avg < min {
+			min = avg
+			for j := range a {
+				copy(aa[j], a[j])
+			}
+		} else {
+			for j := range a {
+				copy(a[j], aa[j])
+			}
+		}
+		fmt.Println(e, min)
+		for i := range a {
+			factor := rnd.Float64()
+			for j := range t {
+				if rnd.Intn(2) == 0 {
+					t[j].Mean -= factor * Norm(t[j].Mean, avg, sd) / DNorm(t[j].Mean, avg, sd)
+				} else {
+					t[j].Mean += factor * Norm(t[j].Mean, avg, sd) / DNorm(t[j].Mean, avg, sd)
+				}
+			}
+			for j := range a[i] {
+				if rnd.Intn(2) == 0 {
+					a[i][j].Mean -= factor * Norm(a[i][j].Mean, avg, sd) / DNorm(a[i][j].Mean, avg, sd)
+				} else {
+					a[i][j].Mean += factor * Norm(a[i][j].Mean, avg, sd) / DNorm(a[i][j].Mean, avg, sd)
+				}
+			}
+		}
+		for i := range a {
+			x := shownum(a[i])
+			if x == 0 {
+				continue
+			}
+			if target%x == 0 {
+				if x == 1 || x == target {
+					continue
+				} else {
+					fmt.Println(x, target/x)
+					break Search
+				}
+			}
+		}
+	}
+
+	values := make(plotter.Values, 0, 8)
+	for _, v := range d {
+		values = append(values, v)
+	}
+
+	p := plot.New()
+	p.Title.Text = "binary"
+
+	histogram, err := plotter.NewHist(values, 20)
+	if err != nil {
+		panic(err)
+	}
+	p.Add(histogram)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "binary.png")
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Graphical implements graphical search for factoring numbers
