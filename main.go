@@ -112,48 +112,61 @@ func main() {
 		}
 		target := *FlagTarget
 		n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
-		a := make([][]Distribution, 1024)
+		a := make([][]Distribution, 32)
+		aa := make([][]Distribution, len(a))
 		for j := range a {
 			a[j] = make([]Distribution, 0, n)
 			for i := 0; i < n; i++ {
 				a[j] = append(a[j], Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
 			}
+			aa[j] = make([]Distribution, len(a[j]))
+			copy(aa[j], a[j])
 		}
 
-		samples := 128 * 1024
-		sample := func(a [][]Distribution, only int) (d []float64, avg, sd float64) {
+		size := int(math.Ceil(math.Log2(float64(target))))
+		t := make([]Distribution, 0, size)
+		for i := 0; i < size; i++ {
+			t = append(t, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+		}
+
+		samples := 8 * 1024
+		sample := func(t []Distribution, a [][]Distribution) (d []float64, avg, sd float64) {
 			for i := 0; i < samples; i++ {
-				cost := uint64(0)
+				cost := 0.0
 				count := 0
 				for _, a := range a {
 					x := uint64(0)
 					e := uint64(1)
 					for _, v := range a {
-						mean := 0.0
-						if count == only || only == -1 {
-							mean = v.Mean
-						}
-						if (rnd.NormFloat64()+mean)*v.StdDev > 0 {
+						if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
 							x += e
 						}
 						e *= 2
 						count++
 					}
+					tt := uint64(0)
+					e = 1
+					for _, v := range t {
+						if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+							tt += e
+						}
+						e *= 2
+					}
 					xx := uint64(0)
 					if x > 0 {
-						xx = uint64(target) % x
+						xx = tt % x
 					}
-					cost += xx
+					cost += float64(xx) + math.Abs(float64(target)-float64(tt))/float64(target)
 				}
-				d = append(d, float64(cost))
-				avg += float64(cost)
-				sd += float64(cost) * float64(cost)
+				d = append(d, cost)
+				avg += cost
+				sd += cost * cost
 			}
 			avg /= float64(samples * len(a))
 			sd = math.Sqrt(sd/float64(samples*len(a)) - avg*avg)
 			return d, avg, sd
 		}
-		d, avg, sd := sample(a, -1)
+		d, avg, sd := sample(t, a)
 		fmt.Println(avg, sd)
 
 		shownum := func(a []Distribution) int {
@@ -168,16 +181,35 @@ func main() {
 			return x
 		}
 
+		min := math.MaxFloat64
 	Search:
 		for e := 0; true; e++ {
-			_, avg, sd := sample(a, -1)
-			fmt.Println(e, avg, sd)
+			_, avg, sd := sample(t, a)
+			if avg < min {
+				min = avg
+				for j := range a {
+					copy(aa[j], a[j])
+				}
+			} else {
+				for j := range a {
+					copy(a[j], aa[j])
+				}
+			}
+			fmt.Println(e, min)
 			for i := range a {
+				factor := rnd.Float64()
+				for j := range t {
+					if rnd.Intn(2) == 0 {
+						t[j].Mean -= factor * Norm(t[j].Mean, avg, sd) / DNorm(t[j].Mean, avg, sd)
+					} else {
+						t[j].Mean += factor * Norm(t[j].Mean, avg, sd) / DNorm(t[j].Mean, avg, sd)
+					}
+				}
 				for j := range a[i] {
 					if rnd.Intn(2) == 0 {
-						a[i][j].Mean -= .001 * Norm(a[i][j].Mean, avg, sd) / DNorm(a[i][j].Mean, avg, sd)
+						a[i][j].Mean -= factor * Norm(a[i][j].Mean, avg, sd) / DNorm(a[i][j].Mean, avg, sd)
 					} else {
-						a[i][j].Mean += .001 * Norm(a[i][j].Mean, avg, sd) / DNorm(a[i][j].Mean, avg, sd)
+						a[i][j].Mean += factor * Norm(a[i][j].Mean, avg, sd) / DNorm(a[i][j].Mean, avg, sd)
 					}
 				}
 			}
