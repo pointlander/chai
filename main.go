@@ -156,7 +156,6 @@ func Newton() {
 	sample := func(t []Distribution, a [][]Distribution) (d []float64, avg, sd float64) {
 		for i := 0; i < samples; i++ {
 			cost := 0.0
-			count := 0
 			for _, a := range a {
 				x := uint64(0)
 				e := uint64(1)
@@ -165,7 +164,6 @@ func Newton() {
 						x += e
 					}
 					e *= 2
-					count++
 				}
 				tt := uint64(0)
 				e = 1
