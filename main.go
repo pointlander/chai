@@ -176,8 +176,9 @@ func Newton() {
 				xx := uint64(0)
 				if x > 0 {
 					xx = tt % x
+					cost += float64(xx) / float64(x)
 				}
-				cost += float64(xx) + math.Abs(float64(target)-float64(tt))/float64(target)
+				cost += math.Abs(float64(target)-float64(tt)) / float64(target)
 			}
 			d = append(d, cost)
 			avg += cost
