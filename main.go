@@ -135,7 +135,7 @@ func Newton() {
 	}
 	target := *FlagTarget
 	n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
-	a := make([][]Distribution, 32)
+	a := make([][]Distribution, 2)
 	aa := make([][]Distribution, len(a))
 	for j := range a {
 		a[j] = make([]Distribution, 0, n)
@@ -147,38 +147,43 @@ func Newton() {
 	}
 
 	size := int(math.Ceil(math.Log2(float64(target))))
-	t := make([]Distribution, 0, size)
-	for i := 0; i < size; i++ {
-		t = append(t, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+	t := make([][]Distribution, len(a))
+	for j := range t {
+		t[j] = make([]Distribution, 0, size)
+		for i := 0; i < size; i++ {
+			t[j] = append(t[j], Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+		}
 	}
 
 	samples := 8 * 1024
-	sample := func(t []Distribution, a [][]Distribution) (d []float64, avg, sd float64) {
+	sample := func(t [][]Distribution, a [][]Distribution) (d []float64, avg, sd float64) {
 		for i := 0; i < samples; i++ {
 			cost := 0.0
 			for _, a := range a {
-				x := uint64(0)
-				e := uint64(1)
-				for _, v := range a {
-					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
-						x += e
+				for _, t := range t {
+					x := uint64(0)
+					e := uint64(1)
+					for _, v := range a {
+						if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+							x += e
+						}
+						e *= 2
 					}
-					e *= 2
-				}
-				tt := uint64(0)
-				e = 1
-				for _, v := range t {
-					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
-						tt += e
+					tt := uint64(0)
+					e = 1
+					for _, v := range t {
+						if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+							tt += e
+						}
+						e *= 2
 					}
-					e *= 2
+					xx := uint64(0)
+					if x > 0 {
+						xx = tt % x
+						cost += float64(xx) / float64(x)
+					}
+					cost += math.Abs(float64(target)-float64(tt)) / float64(target)
 				}
-				xx := uint64(0)
-				if x > 0 {
-					xx = tt % x
-					cost += float64(xx) / float64(x)
-				}
-				cost *= math.Abs(float64(target)-float64(tt)) / float64(target)
 			}
 			d = append(d, cost)
 			avg += cost
@@ -190,6 +195,24 @@ func Newton() {
 	}
 	d, avg, sd := sample(t, a)
 	fmt.Println(avg, sd)
+	values := make(plotter.Values, 0, 8)
+	for _, v := range d {
+		values = append(values, v)
+	}
+
+	p := plot.New()
+	p.Title.Text = "binary"
+
+	histogram, err := plotter.NewHist(values, 20)
+	if err != nil {
+		panic(err)
+	}
+	p.Add(histogram)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "binary.png")
+	if err != nil {
+		panic(err)
+	}
 
 	shownum := func(a []Distribution) int {
 		x := 0
@@ -220,11 +243,11 @@ Search:
 		fmt.Println(e, min)
 		for i := range a {
 			factor := rnd.Float64()
-			for j := range t {
+			for j := range t[i] {
 				if rnd.Intn(2) == 0 {
-					t[j].Mean -= factor * Norm(t[j].Mean, avg, sd) / DNorm(t[j].Mean, avg, sd)
+					t[i][j].Mean -= factor * Norm(t[i][j].Mean, avg, sd) / DNorm(t[i][j].Mean, avg, sd)
 				} else {
-					t[j].Mean += factor * Norm(t[j].Mean, avg, sd) / DNorm(t[j].Mean, avg, sd)
+					t[i][j].Mean += factor * Norm(t[i][j].Mean, avg, sd) / DNorm(t[i][j].Mean, avg, sd)
 				}
 			}
 			for j := range a[i] {
@@ -249,25 +272,6 @@ Search:
 				}
 			}
 		}
-	}
-
-	values := make(plotter.Values, 0, 8)
-	for _, v := range d {
-		values = append(values, v)
-	}
-
-	p := plot.New()
-	p.Title.Text = "binary"
-
-	histogram, err := plotter.NewHist(values, 20)
-	if err != nil {
-		panic(err)
-	}
-	p.Add(histogram)
-
-	err = p.Save(8*vg.Inch, 8*vg.Inch, "binary.png")
-	if err != nil {
-		panic(err)
 	}
 }
 
