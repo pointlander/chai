@@ -135,7 +135,7 @@ func Newton() {
 	}
 	target := *FlagTarget
 	n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
-	a := make([][]Distribution, 2)
+	a := make([][]Distribution, 3)
 	aa := make([][]Distribution, len(a))
 	for j := range a {
 		a[j] = make([]Distribution, 0, n)
@@ -148,11 +148,14 @@ func Newton() {
 
 	size := int(math.Ceil(math.Log2(float64(target))))
 	t := make([][]Distribution, len(a))
+	tt := make([][]Distribution, len(a))
 	for j := range t {
 		t[j] = make([]Distribution, 0, size)
 		for i := 0; i < size; i++ {
 			t[j] = append(t[j], Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
 		}
+		tt[j] = make([]Distribution, len(a[j]))
+		copy(tt[j], t[j])
 	}
 
 	samples := 8 * 1024
@@ -180,9 +183,10 @@ func Newton() {
 					xx := uint64(0)
 					if x > 0 {
 						xx = tt % x
-						cost += float64(xx) / float64(x)
+						cost += (float64(xx) / float64(x)) * (math.Abs(float64(target)-float64(tt)) / float64(target))
+					} else {
+						cost += math.Abs(float64(target)-float64(tt)) / float64(target)
 					}
-					cost += math.Abs(float64(target)-float64(tt)) / float64(target)
 				}
 			}
 			d = append(d, cost)
@@ -234,10 +238,11 @@ Search:
 			min = avg
 			for j := range a {
 				copy(aa[j], a[j])
+				copy(tt[j], t[j])
 			}
 		} else {
 			for j := range a {
-				copy(a[j], aa[j])
+				copy(t[j], tt[j])
 			}
 		}
 		fmt.Println(e, min)
