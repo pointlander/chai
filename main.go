@@ -135,7 +135,7 @@ func Newton() {
 	}
 	target := *FlagTarget
 	n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
-	a := make([][]Distribution, 3)
+	a := make([][]Distribution, 2)
 	aa := make([][]Distribution, len(a))
 	for j := range a {
 		a[j] = make([]Distribution, 0, n)
@@ -183,7 +183,7 @@ func Newton() {
 					xx := uint64(0)
 					if x > 0 {
 						xx = tt % x
-						cost += (float64(xx) / float64(x)) * (math.Abs(float64(target)-float64(tt)) / float64(target))
+						cost += (float64(xx) / float64(x)) + (math.Abs(float64(target)-float64(tt)) / float64(target))
 					} else {
 						cost += math.Abs(float64(target)-float64(tt)) / float64(target)
 					}
@@ -242,6 +242,7 @@ Search:
 			}
 		} else {
 			for j := range a {
+				copy(a[j], aa[j])
 				copy(t[j], tt[j])
 			}
 		}
