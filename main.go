@@ -135,7 +135,7 @@ func Newton() {
 	}
 	target := *FlagTarget
 	n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
-	a := make([][]Distribution, 2)
+	a := make([][]Distribution, 4)
 	aa := make([][]Distribution, len(a))
 	for j := range a {
 		a[j] = make([]Distribution, 0, n)
@@ -162,31 +162,30 @@ func Newton() {
 	sample := func(t [][]Distribution, a [][]Distribution) (d []float64, avg, sd float64) {
 		for i := 0; i < samples; i++ {
 			cost := 0.0
-			for _, a := range a {
-				for _, t := range t {
-					x := uint64(0)
-					e := uint64(1)
-					for _, v := range a {
-						if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
-							x += e
-						}
-						e *= 2
+			for i, a := range a {
+				t := t[i]
+				x := uint64(0)
+				e := uint64(1)
+				for _, v := range a {
+					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						x += e
 					}
-					tt := uint64(0)
-					e = 1
-					for _, v := range t {
-						if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
-							tt += e
-						}
-						e *= 2
+					e *= 2
+				}
+				tt := uint64(0)
+				e = 1
+				for _, v := range t {
+					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						tt += e
 					}
-					xx := uint64(0)
-					if x > 0 {
-						xx = tt % x
-						cost += (float64(xx) / float64(x)) + (math.Abs(float64(target)-float64(tt)) / float64(target))
-					} else {
-						cost += math.Abs(float64(target)-float64(tt)) / float64(target)
-					}
+					e *= 2
+				}
+				xx := uint64(0)
+				if x > 0 {
+					xx = tt % x
+					cost += (float64(xx) / float64(x)) + (math.Abs(float64(target)-float64(tt)) / float64(target))
+				} else {
+					cost += math.Abs(float64(target)-float64(tt)) / float64(target)
 				}
 			}
 			d = append(d, cost)
