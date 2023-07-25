@@ -395,19 +395,30 @@ func Graphical(seed int) bool {
 
 // Gradient implements pseudo-gradient descent for factoring numbers
 func Gradient(seed int) bool {
+	fmt.Println("seed", seed)
 	rnd := rand.New(rand.NewSource(int64(seed)))
 	type Distribution struct {
 		Mean   float64
 		StdDev float64
 	}
 	target := *FlagTarget
-	n := int(math.Ceil(math.Log2(float64(target))))
-	a := make([]Distribution, 0, n)
-	for i := 0; i < n; i++ {
-		a = append(a, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+	n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
+	a := make([][]Distribution, 4)
+	for j := range a {
+		a[j] = make([]Distribution, 0, n)
+		for i := 0; i < n; i++ {
+			a[j] = append(a[j], Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+		}
 	}
-	fmt.Println(n)
-	fmt.Println(a)
+
+	size := int(math.Ceil(math.Log2(float64(target))))
+	t := make([][]Distribution, len(a))
+	for j := range t {
+		t[j] = make([]Distribution, 0, size)
+		for i := 0; i < size; i++ {
+			t[j] = append(t[j], Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+		}
+	}
 	shownum := func(a []Distribution) int {
 		x := 0
 		e := 1
@@ -417,103 +428,106 @@ func Gradient(seed int) bool {
 			}
 			e *= 2
 		}
-		fmt.Println(x)
 		return x
 	}
-	samples := 8 * 1024
-	sample := func(a, b []Distribution) (avg, sd float64) {
-		i := 0
-		for i < samples {
-			x := 0
-			y := 0
-			e := 1
-			k := 0
-			for _, v := range a {
-				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
-					x += e
+	samples := 1024
+	sample := func(t [][]Distribution, a [][]Distribution) (d []float64, avg, sd float64) {
+		for i := 0; i < samples; i++ {
+			cost := 0.0
+			for i, a := range a {
+				t := t[i]
+				x := uint64(0)
+				e := uint64(1)
+				for _, v := range a {
+					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						x += e
+					}
+					e *= 2
 				}
-				e *= 2
-				k++
-			}
-			e = 1
-			k = 0
-			for _, v := range b {
-				if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
-					y += e
+				tt := uint64(0)
+				e = 1
+				for _, v := range t {
+					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						tt += e
+					}
+					e *= 2
 				}
-				e *= 2
-				k++
+				xx := uint64(0)
+				if x > 0 {
+					xx = tt % x
+					cost += (float64(xx) / float64(x)) + (math.Abs(float64(target)-float64(tt)) / float64(target))
+				} else {
+					cost += math.Abs(float64(target)-float64(tt)) / float64(target)
+				}
 			}
-			xx := 0
-			if x > 0 {
-				xx = target % x
-			}
-			yy := 0
-			if y > 0 {
-				yy = target % y
-			}
-			cost := yy * xx
-			avg += float64(cost)
-			sd += float64(cost) * float64(cost)
-			i += 1
+			d = append(d, cost)
+			avg += cost
+			sd += cost * cost
 		}
-		avg /= float64(samples)
-		sd = math.Sqrt(sd/float64(samples) - avg*avg)
-		return avg, sd
+		avg /= float64(samples * len(a))
+		sd = math.Sqrt(sd/float64(samples*len(a)) - avg*avg)
+		return d, avg, sd
 	}
 
-	j := 0
-	for j < 33 {
+	best := math.MaxFloat64
+	for j := 0; j < 1024; j++ {
 		type Sample struct {
-			A      []Distribution
-			Weight float64
+			A [][]Distribution
+			T [][]Distribution
 		}
 		samples := make([]Sample, 16)
 		for i := range samples {
-			samples[i].A = make([]Distribution, len(a))
-			copy(samples[i].A, a)
+			samples[i].A = make([][]Distribution, len(a))
 			for j := range samples[i].A {
-				samples[i].A[j].Mean += rnd.NormFloat64()
-				samples[i].A[j].StdDev += rnd.NormFloat64()
-				if samples[i].A[j].StdDev < 0 {
-					samples[i].A[j].StdDev = -samples[i].A[j].StdDev
+				samples[i].A[j] = make([]Distribution, len(a[j]))
+				copy(samples[i].A[j], a[j])
+				for k := range samples[i].A[j] {
+					samples[i].A[j][k].Mean += rnd.NormFloat64()
+					samples[i].A[j][k].StdDev += rnd.NormFloat64()
+					if samples[i].A[j][k].StdDev < 0 {
+						samples[i].A[j][k].StdDev = -samples[i].A[j][k].StdDev
+					}
 				}
 			}
 
-		}
-		graph := pagerank.NewGraph64()
-		for i := range samples {
-			remainder := samples[i:]
-			for j := range remainder {
-				avg, _ := sample(samples[i].A, remainder[j].A)
-				graph.Link(uint64(i), uint64(j), float64(target)*float64(target)-avg)
-				graph.Link(uint64(j), uint64(i), float64(target)*float64(target)-avg)
+			samples[i].T = make([][]Distribution, len(t))
+			for j := range samples[i].T {
+				samples[i].T[j] = make([]Distribution, len(t[j]))
+				copy(samples[i].T[j], t[j])
+				for k := range samples[i].T[j] {
+					samples[i].T[j][k].Mean += rnd.NormFloat64()
+					samples[i].T[j][k].StdDev += rnd.NormFloat64()
+					if samples[i].T[j][k].StdDev < 0 {
+						samples[i].T[j][k].StdDev = -samples[i].T[j][k].StdDev
+					}
+				}
 			}
 		}
-		graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
-			samples[node].Weight = rank
-		})
-		sort.Slice(samples, func(i, j int) bool {
-			return samples[i].Weight > samples[j].Weight
-		})
-
-		copy(a, samples[0].A)
-		x := shownum(a)
-		if x == 0 {
-			return false
+		for i := range samples {
+			_, avg, _ := sample(t, a)
+			if avg < best {
+				fmt.Println(avg)
+				best = avg
+				copy(a, samples[i].A)
+				copy(t, samples[i].T)
+			}
 		}
-		if target%x == 0 {
-			if x == 1 || x == target {
+		for i := range a {
+			x := shownum(a[i])
+			if x == 0 {
 				return false
-			} else {
-				fmt.Println(target / x)
-				return true
+			}
+			if target%x == 0 {
+				if x == 1 || x == target {
+					return false
+				} else {
+					fmt.Println(x, target/x)
+					return true
+				}
 			}
 		}
 		j++
 	}
-	fmt.Println(a)
-	shownum(a)
 	return false
 }
 
