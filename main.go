@@ -166,9 +166,9 @@ func main() {
 					if tt > 0 {
 						//xx = tt % x
 						for s := 31; s >= 0; s-- {
-							x := int64(0)
-							e := int64(1)
-							for _, v := range a {
+							x := int64(1)
+							e := int64(2)
+							for _, v := range a[1:] {
 								if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
 									x += e
 								}
