@@ -123,6 +123,98 @@ func main() {
 		}
 	}
 	fmt.Println(primes, primes[0]*primes[1])
+
+	{
+		type Distribution struct {
+			Mean   float64
+			StdDev float64
+		}
+		target := *FlagTarget
+		n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
+		a := make([][]Distribution, 8)
+		for j := range a {
+			a[j] = make([]Distribution, 0, n)
+			for i := 0; i < n; i++ {
+				a[j] = append(a[j], Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+			}
+		}
+
+		size := int(math.Ceil(math.Log2(float64(target))))
+		t := make([][]Distribution, len(a))
+		for j := range t {
+			t[j] = make([]Distribution, 0, size)
+			for i := 0; i < size; i++ {
+				t[j] = append(t[j], Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+			}
+		}
+
+		samples := 8 * 1024
+		sample := func(t [][]Distribution, a [][]Distribution) (d []float64, avg, sd float64) {
+			for i := 0; i < samples; i++ {
+				cost := 0.0
+				for i, a := range a {
+					t := t[i]
+					tt := int64(0)
+					e := int64(1)
+					for _, v := range t {
+						if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+							tt += e
+						}
+						e <<= 1
+					}
+					xx := uint64(0)
+					if tt > 0 {
+						//xx = tt % x
+						for s := 31; s >= 0; s-- {
+							x := int64(0)
+							e := int64(1)
+							for _, v := range a {
+								if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+									x += e
+								}
+								e <<= 1
+							}
+
+							ttt := tt - (x << uint(s))
+							if ttt > 0 {
+								tt = ttt
+							} else if s == 0 {
+								xx = uint64(-ttt)
+							}
+						}
+						cost += (float64(xx) / float64(tt))
+					}
+					cost += math.Abs(float64(target)-float64(tt)) / float64(target)
+				}
+				d = append(d, cost)
+				avg += cost
+				sd += cost * cost
+			}
+			avg /= float64(samples * len(a))
+			sd = math.Sqrt(sd/float64(samples*len(a)) - avg*avg)
+			return d, avg, sd
+		}
+		d, avg, sd := sample(t, a)
+		fmt.Println(avg, sd)
+		values := make(plotter.Values, 0, 8)
+		for _, v := range d {
+			values = append(values, v)
+		}
+
+		p := plot.New()
+		p.Title.Text = "binary"
+
+		histogram, err := plotter.NewHist(values, 20)
+		if err != nil {
+			panic(err)
+		}
+		p.Add(histogram)
+
+		err = p.Save(8*vg.Inch, 8*vg.Inch, "spectrum.png")
+		if err != nil {
+			panic(err)
+		}
+	}
 }
 
 // Newton implements newton's method for factoring numbers
