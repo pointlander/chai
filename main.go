@@ -166,9 +166,9 @@ func main() {
 					if tt > 0 {
 						//xx = tt % x
 						for s := 31; s >= 0; s-- {
-							x := int64(1)
-							e := int64(2)
-							for _, v := range a[1:] {
+							x := int64(0)
+							e := int64(1)
+							for _, v := range a {
 								if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
 									x += e
 								}
@@ -176,13 +176,17 @@ func main() {
 							}
 
 							ttt := tt - (x << uint(s))
-							if ttt > 0 {
+							if s == 0 {
+								if ttt < 0 {
+									xx = uint64(-ttt)
+								} else {
+									xx = uint64(ttt)
+								}
+							} else if ttt > 0 {
 								tt = ttt
-							} else if s == 0 {
-								xx = uint64(-ttt)
 							}
 						}
-						cost += (float64(xx) / float64(tt))
+						cost += float64(xx) / float64(target)
 					}
 					cost += math.Abs(float64(target)-float64(tt)) / float64(target)
 				}
