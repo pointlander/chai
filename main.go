@@ -189,7 +189,7 @@ func main() {
 					}
 					e <<= 1
 				}
-				xx := uint64(0)
+				save, xx := tt, uint64(0)
 				if tt > 0 {
 					//xx = tt % x
 					for s := 31; s >= 0; s-- {
@@ -215,7 +215,7 @@ func main() {
 					}
 					cost += float64(xx) / float64(target)
 				}
-				cost += math.Abs(float64(target)-float64(tt)) / float64(target)
+				cost += math.Abs(float64(target)-float64(save)) / float64(target)
 				d = append(d, cost)
 				avg += cost
 				sd += cost * cost
@@ -291,14 +291,10 @@ func main() {
 			}
 			for i := 0; i < pop; i++ {
 				g := copy(&pool[i])
-				for j := range g.A {
-					g.A[j].Mean += rnd.NormFloat64()
-					g.A[j].StdDev += rnd.NormFloat64()
-				}
-				for j := range g.T {
-					g.T[j].Mean += rnd.NormFloat64()
-					g.T[j].StdDev += rnd.NormFloat64()
-				}
+				g.A[rnd.Intn(len(g.A))].Mean += rnd.NormFloat64()
+				g.A[rnd.Intn(len(g.A))].StdDev += rnd.NormFloat64()
+				g.T[rnd.Intn(len(g.T))].Mean += rnd.NormFloat64()
+				g.T[rnd.Intn(len(g.T))].StdDev += rnd.NormFloat64()
 				pool = append(pool, g)
 			}
 			for i := range pool {
