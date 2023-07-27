@@ -129,77 +129,109 @@ func main() {
 			Mean   float64
 			StdDev float64
 		}
+
+		shownum := func(a []Distribution) int {
+			x := 0
+			e := 1
+			for _, v := range a {
+				if v.Mean > 0 {
+					x += e
+				}
+				e *= 2
+			}
+			return x
+		}
+
+		type Genome struct {
+			A       []Distribution
+			T       []Distribution
+			Fitness float64
+			Cached  bool
+		}
+		pop := 128
+		pool := make([]Genome, 0, pop)
 		target := *FlagTarget
 		n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
-		a := make([][]Distribution, 8)
-		for j := range a {
-			a[j] = make([]Distribution, 0, n)
+		for i := 0; i < pop; i++ {
+			a := make([]Distribution, 0, n)
 			for i := 0; i < n; i++ {
-				a[j] = append(a[j], Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+				a = append(a, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
 			}
-		}
 
-		size := int(math.Ceil(math.Log2(float64(target))))
-		t := make([][]Distribution, len(a))
-		for j := range t {
-			t[j] = make([]Distribution, 0, size)
+			size := int(math.Ceil(math.Log2(float64(target))))
+			t := make([]Distribution, 0, size)
 			for i := 0; i < size; i++ {
-				t[j] = append(t[j], Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+				t = append(t, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
 			}
+
+			pool = append(pool, Genome{A: a, T: t})
 		}
 
-		samples := 8 * 1024
-		sample := func(t [][]Distribution, a [][]Distribution) (d []float64, avg, sd float64) {
+		copy := func(g *Genome) Genome {
+			a := make([]Distribution, len(g.A))
+			copy(a, g.A)
+			t := make([]Distribution, len(g.T))
+			copy(t, g.T)
+			return Genome{A: a, T: t}
+		}
+
+		samples := 16
+		sample := func(g *Genome) (d []float64, avg, sd float64) {
 			for i := 0; i < samples; i++ {
 				cost := 0.0
-				for i, a := range a {
-					t := t[i]
-					tt := int64(0)
-					e := int64(1)
-					for _, v := range t {
-						if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
-							tt += e
-						}
-						e <<= 1
+				a := g.A
+				t := g.T
+				tt := int64(0)
+				e := int64(1)
+				for _, v := range t {
+					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						tt += e
 					}
-					xx := uint64(0)
-					if tt > 0 {
-						//xx = tt % x
-						for s := 31; s >= 0; s-- {
-							x := int64(0)
-							e := int64(1)
-							for _, v := range a {
-								if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
-									x += e
-								}
-								e <<= 1
-							}
-
-							ttt := tt - (x << uint(s))
-							if s == 0 {
-								if ttt < 0 {
-									xx = uint64(-ttt)
-								} else {
-									xx = uint64(ttt)
-								}
-							} else if ttt > 0 {
-								tt = ttt
-							}
-						}
-						cost += float64(xx) / float64(target)
-					}
-					cost += math.Abs(float64(target)-float64(tt)) / float64(target)
+					e <<= 1
 				}
+				xx := uint64(0)
+				if tt > 0 {
+					//xx = tt % x
+					for s := 31; s >= 0; s-- {
+						x := int64(0)
+						e := int64(1)
+						for _, v := range a {
+							if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+								x += e
+							}
+							e <<= 1
+						}
+
+						ttt := tt - (x << uint(s))
+						if s == 0 {
+							if ttt < 0 {
+								xx = uint64(-ttt)
+							} else {
+								xx = uint64(ttt)
+							}
+						} else if ttt > 0 {
+							tt = ttt
+						}
+					}
+					cost += float64(xx) / float64(target)
+				}
+				cost += math.Abs(float64(target)-float64(tt)) / float64(target)
 				d = append(d, cost)
 				avg += cost
 				sd += cost * cost
 			}
-			avg /= float64(samples * len(a))
-			sd = math.Sqrt(sd/float64(samples*len(a)) - avg*avg)
+			avg /= float64(samples)
+			sd = math.Sqrt(sd/float64(samples) - avg*avg)
 			return d, avg, sd
 		}
-		d, avg, sd := sample(t, a)
-		fmt.Println(avg, sd)
+		d := make([]float64, 0, 8)
+		for i := range pool {
+			dd, avg, _ := sample(&pool[i])
+			pool[i].Fitness = avg
+			pool[i].Cached = true
+			d = append(d, dd...)
+		}
+
 		values := make(plotter.Values, 0, 8)
 		for _, v := range d {
 			values = append(values, v)
@@ -217,6 +249,81 @@ func main() {
 		err = p.Save(8*vg.Inch, 8*vg.Inch, "spectrum.png")
 		if err != nil {
 			panic(err)
+		}
+
+		for {
+			sort.Slice(pool, func(i, j int) bool {
+				return pool[i].Fitness < pool[j].Fitness
+			})
+			pool = pool[:pop]
+			fmt.Println(pool[0].Fitness)
+			for i := range pool {
+				x := shownum(pool[i].A)
+				if x == 0 {
+					continue
+				}
+				if target%x == 0 {
+					if x == 1 || x == target {
+						continue
+					} else {
+						fmt.Println(x, target/x)
+						return
+					}
+				}
+			}
+			if pool[0].Fitness == 0 {
+				break
+			}
+			for i := 0; i < pop/4; i++ {
+				for j := 0; j < pop/4; j++ {
+					if i == j {
+						continue
+					}
+					g := copy(&pool[i])
+					aa := pool[j].A
+					tt := pool[j].T
+					g.A[rnd.Intn(len(g.A))].Mean = aa[rnd.Intn(len(aa))].Mean
+					g.A[rnd.Intn(len(g.A))].StdDev = aa[rnd.Intn(len(aa))].StdDev
+					g.T[rnd.Intn(len(g.T))].Mean = tt[rnd.Intn(len(tt))].Mean
+					g.T[rnd.Intn(len(g.T))].StdDev = tt[rnd.Intn(len(tt))].StdDev
+					pool = append(pool, g)
+				}
+			}
+			for i := 0; i < pop; i++ {
+				g := copy(&pool[i])
+				for j := range g.A {
+					g.A[j].Mean += rnd.NormFloat64()
+					g.A[j].StdDev += rnd.NormFloat64()
+				}
+				for j := range g.T {
+					g.T[j].Mean += rnd.NormFloat64()
+					g.T[j].StdDev += rnd.NormFloat64()
+				}
+				pool = append(pool, g)
+			}
+			for i := range pool {
+				if pool[i].Cached {
+					continue
+				}
+				_, avg, _ := sample(&pool[i])
+				pool[i].Fitness = avg
+				pool[i].Cached = true
+			}
+		}
+
+		for i := range pool {
+			x := shownum(pool[i].A)
+			if x == 0 {
+				continue
+			}
+			if target%x == 0 {
+				if x == 1 || x == target {
+					continue
+				} else {
+					fmt.Println(x, target/x)
+					return
+				}
+			}
 		}
 	}
 }
