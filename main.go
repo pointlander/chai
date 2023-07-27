@@ -10,7 +10,9 @@ import (
 	"math"
 	"math/big"
 	"math/rand"
+	"runtime"
 	"sort"
+	"sync"
 
 	"github.com/pointlander/pagerank"
 
@@ -123,8 +125,8 @@ func main() {
 		}
 	}
 	fmt.Println(primes, primes[0]*primes[1])
-
 	{
+		cpus := runtime.NumCPU()
 		type Distribution struct {
 			Mean   float64
 			StdDev float64
@@ -148,7 +150,7 @@ func main() {
 			Fitness float64
 			Cached  bool
 		}
-		pop := 128
+		const pop = 128
 		pool := make([]Genome, 0, pop)
 		target := *FlagTarget
 		n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
@@ -175,7 +177,7 @@ func main() {
 			return Genome{A: a, T: t}
 		}
 
-		samples := 16
+		lock, samples := sync.Mutex{}, 16
 		sample := func(g *Genome) (d []float64, avg, sd float64) {
 			for i := 0; i < samples; i++ {
 				cost := 0.0
@@ -184,7 +186,10 @@ func main() {
 				tt := int64(0)
 				e := int64(1)
 				for _, v := range t {
-					if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+					lock.Lock()
+					r := rnd.NormFloat64()
+					lock.Unlock()
+					if (r+v.Mean)*v.StdDev > 0 {
 						tt += e
 					}
 					e <<= 1
@@ -196,7 +201,10 @@ func main() {
 						x := int64(0)
 						e := int64(1)
 						for _, v := range a {
-							if (rnd.NormFloat64()+v.Mean)*v.StdDev > 0 {
+							lock.Lock()
+							r := rnd.NormFloat64()
+							lock.Unlock()
+							if (r+v.Mean)*v.StdDev > 0 {
 								x += e
 							}
 							e <<= 1
@@ -297,13 +305,39 @@ func main() {
 				g.T[rnd.Intn(len(g.T))].StdDev += rnd.NormFloat64()
 				pool = append(pool, g)
 			}
-			for i := range pool {
-				if pool[i].Cached {
-					continue
-				}
+			done := make(chan bool, 8)
+			i, flight := 0, 0
+			task := func(i int) {
 				_, avg, _ := sample(&pool[i])
 				pool[i].Fitness = avg
 				pool[i].Cached = true
+				done <- true
+			}
+			for i < len(pool) && flight < cpus {
+				if pool[i].Cached {
+					i++
+					continue
+				}
+				go task(i)
+				i++
+				flight++
+			}
+			for i < len(pool) {
+				<-done
+				flight--
+
+				if pool[i].Cached {
+					i++
+					continue
+				}
+
+				go task(i)
+				i++
+				flight++
+			}
+			for flight > 0 {
+				<-done
+				flight--
 			}
 		}
 
