@@ -12,7 +12,6 @@ import (
 	"math/rand"
 	"runtime"
 	"sort"
-	"sync"
 
 	"github.com/pointlander/pagerank"
 
@@ -177,8 +176,8 @@ func main() {
 			return Genome{A: a, T: t}
 		}
 
-		lock, samples := sync.Mutex{}, 16
-		sample := func(g *Genome) (d []float64, avg, sd float64) {
+		samples := 16
+		sample := func(rng *rand.Rand, g *Genome) (d []float64, avg, sd float64) {
 			for i := 0; i < samples; i++ {
 				cost := 0.0
 				a := g.A
@@ -186,10 +185,7 @@ func main() {
 				tt := int64(0)
 				e := int64(1)
 				for _, v := range t {
-					lock.Lock()
-					r := rnd.NormFloat64()
-					lock.Unlock()
-					if (r+v.Mean)*v.StdDev > 0 {
+					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
 						tt += e
 					}
 					e <<= 1
@@ -201,10 +197,7 @@ func main() {
 						x := int64(0)
 						e := int64(1)
 						for _, v := range a {
-							lock.Lock()
-							r := rnd.NormFloat64()
-							lock.Unlock()
-							if (r+v.Mean)*v.StdDev > 0 {
+							if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
 								x += e
 							}
 							e <<= 1
@@ -234,7 +227,7 @@ func main() {
 		}
 		d := make([]float64, 0, 8)
 		for i := range pool {
-			dd, avg, _ := sample(&pool[i])
+			dd, avg, _ := sample(rnd, &pool[i])
 			pool[i].Fitness = avg
 			pool[i].Cached = true
 			d = append(d, dd...)
@@ -305,25 +298,29 @@ func main() {
 				g.T[rnd.Intn(len(g.T))].StdDev += rnd.NormFloat64()
 				pool = append(pool, g)
 			}
-			done := make(chan bool, 8)
+			done := make(chan *rand.Rand, 8)
 			i, flight := 0, 0
-			task := func(i int) {
-				_, avg, _ := sample(&pool[i])
+			rngs := make([]*rand.Rand, cpus)
+			for i := range rngs {
+				rngs[i] = rand.New(rand.NewSource(int64(i + 1)))
+			}
+			task := func(rng *rand.Rand, i int) {
+				_, avg, _ := sample(rng, &pool[i])
 				pool[i].Fitness = avg
 				pool[i].Cached = true
-				done <- true
+				done <- rng
 			}
 			for i < len(pool) && flight < cpus {
 				if pool[i].Cached {
 					i++
 					continue
 				}
-				go task(i)
+				go task(rngs[flight], i)
 				i++
 				flight++
 			}
 			for i < len(pool) {
-				<-done
+				rng := <-done
 				flight--
 
 				if pool[i].Cached {
@@ -331,7 +328,7 @@ func main() {
 					continue
 				}
 
-				go task(i)
+				go task(rng, i)
 				i++
 				flight++
 			}
