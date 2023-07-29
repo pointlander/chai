@@ -21,6 +21,8 @@ import (
 )
 
 var (
+	// FlagGenetic genetic mode
+	FlagGenetic = flag.Bool("genetic", false, "genetic mode")
 	// FlagNewton newton's method
 	FlagNewton = flag.Bool("newton", false, "newton's method")
 	// FlagGraphical graphical mode
@@ -49,6 +51,15 @@ func DNorm(x, mean, std float64) float64 {
 
 func main() {
 	flag.Parse()
+
+	if *FlagGenetic {
+		for seed := 1; seed != 0; seed++ {
+			if Genetic(seed) {
+				return
+			}
+		}
+		return
+	}
 
 	if *FlagNewton {
 		Newton()
@@ -124,220 +135,146 @@ func main() {
 		}
 	}
 	fmt.Println(primes, primes[0]*primes[1])
-	{
-		cpus := runtime.NumCPU()
-		type Distribution struct {
-			Mean   float64
-			StdDev float64
+
+}
+
+// Genetic implements a genetic algorithm
+func Genetic(seed int) bool {
+	rnd := rand.New(rand.NewSource(int64(seed)))
+
+	cpus := runtime.NumCPU()
+	type Distribution struct {
+		Mean   float64
+		StdDev float64
+	}
+
+	shownum := func(a []Distribution) int {
+		x := 0
+		e := 1
+		for _, v := range a {
+			if v.Mean > 0 {
+				x += e
+			}
+			e *= 2
+		}
+		return x
+	}
+
+	type Genome struct {
+		A       []Distribution
+		T       []Distribution
+		Fitness float64
+		Cached  bool
+	}
+	const pop = 128
+	pool := make([]Genome, 0, pop)
+	target := *FlagTarget
+	n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
+	for i := 0; i < pop; i++ {
+		a := make([]Distribution, 0, n)
+		for i := 0; i < n; i++ {
+			a = append(a, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
 		}
 
-		shownum := func(a []Distribution) int {
-			x := 0
-			e := 1
-			for _, v := range a {
-				if v.Mean > 0 {
-					x += e
+		size := int(math.Ceil(math.Log2(float64(target))))
+		t := make([]Distribution, 0, size)
+		for i := 0; i < size; i++ {
+			t = append(t, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+		}
+
+		pool = append(pool, Genome{A: a, T: t})
+	}
+
+	copy := func(g *Genome) Genome {
+		a := make([]Distribution, len(g.A))
+		copy(a, g.A)
+		t := make([]Distribution, len(g.T))
+		copy(t, g.T)
+		return Genome{A: a, T: t}
+	}
+
+	samples := 16
+	sample := func(rng *rand.Rand, g *Genome) (d []float64, avg, sd float64) {
+		for i := 0; i < samples; i++ {
+			cost := 0.0
+			a := g.A
+			t := g.T
+			tt := int64(0)
+			e := int64(1)
+			for _, v := range t {
+				if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
+					tt += e
 				}
-				e *= 2
+				e <<= 1
 			}
-			return x
-		}
-
-		type Genome struct {
-			A       []Distribution
-			T       []Distribution
-			Fitness float64
-			Cached  bool
-		}
-		const pop = 128
-		pool := make([]Genome, 0, pop)
-		target := *FlagTarget
-		n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
-		for i := 0; i < pop; i++ {
-			a := make([]Distribution, 0, n)
-			for i := 0; i < n; i++ {
-				a = append(a, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
-			}
-
-			size := int(math.Ceil(math.Log2(float64(target))))
-			t := make([]Distribution, 0, size)
-			for i := 0; i < size; i++ {
-				t = append(t, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
-			}
-
-			pool = append(pool, Genome{A: a, T: t})
-		}
-
-		copy := func(g *Genome) Genome {
-			a := make([]Distribution, len(g.A))
-			copy(a, g.A)
-			t := make([]Distribution, len(g.T))
-			copy(t, g.T)
-			return Genome{A: a, T: t}
-		}
-
-		samples := 16
-		sample := func(rng *rand.Rand, g *Genome) (d []float64, avg, sd float64) {
-			for i := 0; i < samples; i++ {
-				cost := 0.0
-				a := g.A
-				t := g.T
-				tt := int64(0)
-				e := int64(1)
-				for _, v := range t {
-					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
-						tt += e
-					}
-					e <<= 1
-				}
-				save, xx := tt, uint64(0)
-				if tt > 0 {
-					//xx = tt % x
-					for s := 31; s >= 0; s-- {
-						x := int64(0)
-						e := int64(1)
-						for _, v := range a {
-							if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
-								x += e
-							}
-							e <<= 1
+			save, xx := tt, uint64(0)
+			if tt > 0 {
+				//xx = tt % x
+				for s := 31; s >= 0; s-- {
+					x := int64(0)
+					e := int64(1)
+					for _, v := range a {
+						if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
+							x += e
 						}
+						e <<= 1
+					}
 
-						ttt := tt - (x << uint(s))
-						if s == 0 {
-							if ttt < 0 {
-								xx = uint64(-ttt)
-							} else {
-								xx = uint64(ttt)
-							}
-						} else if ttt > 0 {
-							tt = ttt
+					ttt := tt - (x << uint(s))
+					if s == 0 {
+						if ttt < 0 {
+							xx = uint64(-ttt)
+						} else {
+							xx = uint64(ttt)
 						}
-					}
-					cost += float64(xx) / float64(target)
-				}
-				cost += math.Abs(float64(target)-float64(save)) / float64(target)
-				d = append(d, cost)
-				avg += cost
-				sd += cost * cost
-			}
-			avg /= float64(samples)
-			sd = math.Sqrt(sd/float64(samples) - avg*avg)
-			return d, avg, sd
-		}
-		d := make([]float64, 0, 8)
-		for i := range pool {
-			dd, avg, _ := sample(rnd, &pool[i])
-			pool[i].Fitness = avg
-			pool[i].Cached = true
-			d = append(d, dd...)
-		}
-
-		values := make(plotter.Values, 0, 8)
-		for _, v := range d {
-			values = append(values, v)
-		}
-
-		p := plot.New()
-		p.Title.Text = "binary"
-
-		histogram, err := plotter.NewHist(values, 20)
-		if err != nil {
-			panic(err)
-		}
-		p.Add(histogram)
-
-		err = p.Save(8*vg.Inch, 8*vg.Inch, "spectrum.png")
-		if err != nil {
-			panic(err)
-		}
-
-		for {
-			sort.Slice(pool, func(i, j int) bool {
-				return pool[i].Fitness < pool[j].Fitness
-			})
-			pool = pool[:pop]
-			fmt.Println(pool[0].Fitness)
-			for i := range pool {
-				x := shownum(pool[i].A)
-				if x == 0 {
-					continue
-				}
-				if target%x == 0 {
-					if x == 1 || x == target {
-						continue
-					} else {
-						fmt.Println(x, target/x)
-						return
+					} else if ttt > 0 {
+						tt = ttt
 					}
 				}
+				cost += float64(xx) / float64(target)
 			}
-			if pool[0].Fitness == 0 {
-				break
-			}
-			for i := 0; i < pop/4; i++ {
-				for j := 0; j < pop/4; j++ {
-					if i == j {
-						continue
-					}
-					g := copy(&pool[i])
-					aa := pool[j].A
-					tt := pool[j].T
-					g.A[rnd.Intn(len(g.A))].Mean = aa[rnd.Intn(len(aa))].Mean
-					g.A[rnd.Intn(len(g.A))].StdDev = aa[rnd.Intn(len(aa))].StdDev
-					g.T[rnd.Intn(len(g.T))].Mean = tt[rnd.Intn(len(tt))].Mean
-					g.T[rnd.Intn(len(g.T))].StdDev = tt[rnd.Intn(len(tt))].StdDev
-					pool = append(pool, g)
-				}
-			}
-			for i := 0; i < pop; i++ {
-				g := copy(&pool[i])
-				g.A[rnd.Intn(len(g.A))].Mean += rnd.NormFloat64()
-				g.A[rnd.Intn(len(g.A))].StdDev += rnd.NormFloat64()
-				g.T[rnd.Intn(len(g.T))].Mean += rnd.NormFloat64()
-				g.T[rnd.Intn(len(g.T))].StdDev += rnd.NormFloat64()
-				pool = append(pool, g)
-			}
-			done := make(chan *rand.Rand, 8)
-			i, flight := 0, 0
-			rngs := make([]*rand.Rand, cpus)
-			for i := range rngs {
-				rngs[i] = rand.New(rand.NewSource(int64(i + 1)))
-			}
-			task := func(rng *rand.Rand, i int) {
-				_, avg, _ := sample(rng, &pool[i])
-				pool[i].Fitness = avg
-				pool[i].Cached = true
-				done <- rng
-			}
-			for i < len(pool) && flight < cpus {
-				if pool[i].Cached {
-					i++
-					continue
-				}
-				go task(rngs[flight], i)
-				i++
-				flight++
-			}
-			for i < len(pool) {
-				rng := <-done
-				flight--
-
-				if pool[i].Cached {
-					i++
-					continue
-				}
-
-				go task(rng, i)
-				i++
-				flight++
-			}
-			for flight > 0 {
-				<-done
-				flight--
-			}
+			cost += math.Abs(float64(target)-float64(save)) / float64(target)
+			d = append(d, cost)
+			avg += cost
+			sd += cost * cost
 		}
+		avg /= float64(samples)
+		sd = math.Sqrt(sd/float64(samples) - avg*avg)
+		return d, avg, sd
+	}
+	d := make([]float64, 0, 8)
+	for i := range pool {
+		dd, avg, _ := sample(rnd, &pool[i])
+		pool[i].Fitness = avg
+		pool[i].Cached = true
+		d = append(d, dd...)
+	}
 
+	values := make(plotter.Values, 0, 8)
+	for _, v := range d {
+		values = append(values, v)
+	}
+
+	p := plot.New()
+	p.Title.Text = "binary"
+
+	histogram, err := plotter.NewHist(values, 20)
+	if err != nil {
+		panic(err)
+	}
+	p.Add(histogram)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "spectrum.png")
+	if err != nil {
+		panic(err)
+	}
+
+	for {
+		sort.Slice(pool, func(i, j int) bool {
+			return pool[i].Fitness < pool[j].Fitness
+		})
+		pool = pool[:pop]
+		fmt.Println(pool[0].Fitness)
 		for i := range pool {
 			x := shownum(pool[i].A)
 			if x == 0 {
@@ -348,11 +285,92 @@ func main() {
 					continue
 				} else {
 					fmt.Println(x, target/x)
-					return
+					return true
 				}
 			}
 		}
+		if pool[0].Fitness < 1e-5 {
+			return false
+		}
+		for i := 0; i < pop/4; i++ {
+			for j := 0; j < pop/4; j++ {
+				if i == j {
+					continue
+				}
+				g := copy(&pool[i])
+				aa := pool[j].A
+				tt := pool[j].T
+				g.A[rnd.Intn(len(g.A))].Mean = aa[rnd.Intn(len(aa))].Mean
+				g.A[rnd.Intn(len(g.A))].StdDev = aa[rnd.Intn(len(aa))].StdDev
+				g.T[rnd.Intn(len(g.T))].Mean = tt[rnd.Intn(len(tt))].Mean
+				g.T[rnd.Intn(len(g.T))].StdDev = tt[rnd.Intn(len(tt))].StdDev
+				pool = append(pool, g)
+			}
+		}
+		for i := 0; i < pop; i++ {
+			g := copy(&pool[i])
+			g.A[rnd.Intn(len(g.A))].Mean += rnd.NormFloat64()
+			g.A[rnd.Intn(len(g.A))].StdDev += rnd.NormFloat64()
+			g.T[rnd.Intn(len(g.T))].Mean += rnd.NormFloat64()
+			g.T[rnd.Intn(len(g.T))].StdDev += rnd.NormFloat64()
+			pool = append(pool, g)
+		}
+		done := make(chan *rand.Rand, 8)
+		i, flight := 0, 0
+		rngs := make([]*rand.Rand, cpus)
+		for i := range rngs {
+			rngs[i] = rand.New(rand.NewSource(int64(i + 1)))
+		}
+		task := func(rng *rand.Rand, i int) {
+			_, avg, _ := sample(rng, &pool[i])
+			pool[i].Fitness = avg
+			pool[i].Cached = true
+			done <- rng
+		}
+		for i < len(pool) && flight < cpus {
+			if pool[i].Cached {
+				i++
+				continue
+			}
+			go task(rngs[flight], i)
+			i++
+			flight++
+		}
+		for i < len(pool) {
+			rng := <-done
+			flight--
+
+			if pool[i].Cached {
+				i++
+				continue
+			}
+
+			go task(rng, i)
+			i++
+			flight++
+		}
+		for flight > 0 {
+			<-done
+			flight--
+		}
 	}
+
+	for i := range pool {
+		x := shownum(pool[i].A)
+		if x == 0 {
+			continue
+		}
+		if target%x == 0 {
+			if x == 1 || x == target {
+				continue
+			} else {
+				fmt.Println(x, target/x)
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // Newton implements newton's method for factoring numbers
