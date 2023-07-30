@@ -173,13 +173,13 @@ func Genetic(seed int) bool {
 	for i := 0; i < pop; i++ {
 		a := make([]Distribution, 0, n)
 		for i := 0; i < n; i++ {
-			a = append(a, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+			a = append(a, Distribution{Mean: rnd.NormFloat64(), StdDev: rnd.NormFloat64()})
 		}
 
 		size := int(math.Ceil(math.Log2(float64(target))))
 		t := make([]Distribution, 0, size)
 		for i := 0; i < size; i++ {
-			t = append(t, Distribution{Mean: rnd.NormFloat64(), StdDev: 1})
+			t = append(t, Distribution{Mean: rnd.NormFloat64(), StdDev: rnd.NormFloat64()})
 		}
 
 		pool = append(pool, Genome{A: a, T: t})
