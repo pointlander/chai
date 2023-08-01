@@ -133,6 +133,63 @@ func main() {
 		panic(err)
 	}
 
+	{
+		rng := rand.New(rand.NewSource(int64(1)))
+		type Distribution struct {
+			Mean   float64
+			StdDev float64
+		}
+		cols, rows := 8, 8
+		factor := math.Sqrt(2.0 / float64(cols))
+		weights := make([]Distribution, 0, cols*rows)
+		for i := 0; i < 8*8; i++ {
+			weights = append(weights, Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()})
+		}
+		input := Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()}
+		layer := NewMatrix(0, cols, rows)
+		for _, w := range weights {
+			layer.Data = append(layer.Data, (rng.NormFloat64()+w.Mean)*w.StdDev)
+		}
+		inputs := NewMatrix(0, cols, 1)
+		if (rng.NormFloat64()+input.Mean)*input.StdDev > 0 {
+			inputs.Data = append(inputs.Data, 1)
+		} else {
+			inputs.Data = append(inputs.Data, 0)
+		}
+		for i := 0; i < 7; i++ {
+			inputs.Data = append(inputs.Data, 0)
+		}
+		var state byte
+		samples := make(plotter.Values, 0, 1024)
+		for i := 0; i < 1024; i++ {
+			outputs := Sigmoid(Mul(layer, inputs))
+			state <<= 1
+			if outputs.Data[0] > .5 {
+				state |= 1
+			}
+			samples = append(samples, float64(state))
+			inputs = outputs
+			if (rng.NormFloat64()+input.Mean)*input.StdDev > 0 {
+				inputs.Data[0] = 1
+			} else {
+				inputs.Data[0] = 0
+			}
+		}
+		p := plot.New()
+		p.Title.Text = "rnn"
+
+		histogram, err := plotter.NewHist(samples, 10)
+		if err != nil {
+			panic(err)
+		}
+		p.Add(histogram)
+
+		err = p.Save(8*vg.Inch, 8*vg.Inch, "rnn.png")
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	j := math.MaxUint32 >> 16
 	primes := make([]int, 2)
 	for i := 0; i < 2; i++ {
@@ -168,7 +225,6 @@ func main() {
 	}
 	number.Mul(bigPrimes[0], bigPrimes[1])
 	fmt.Println(number.String())
-
 }
 
 // BigGenetic implements a genetic algorithm with big integers
