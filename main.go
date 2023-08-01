@@ -199,7 +199,7 @@ func BigGenetic(seed int) bool {
 		Fitness big.Float
 		Cached  bool
 	}
-	const pop = 128
+	const pop = 1024
 	pool := make([]Genome, 0, pop)
 	target := *FlagTarget
 	size := int(math.Ceil(math.Log2(float64(target))))
@@ -339,7 +339,7 @@ func BigGenetic(seed int) bool {
 
 	done := big.Float{}
 	done.SetPrec(256)
-	done.SetFloat64(1e-5)
+	done.SetFloat64(1e-7)
 	for {
 		sort.Slice(pool, func(i, j int) bool {
 			return pool[i].Fitness.Cmp(&pool[j].Fitness) < 0
