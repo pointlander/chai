@@ -167,7 +167,11 @@ func main() {
 				inputs.Data = append(inputs.Data, -1)
 			}
 			for i := 0; i < 7; i++ {
-				inputs.Data = append(inputs.Data, -1)
+				if rnd.Intn(2) == 0 {
+					inputs.Data = append(inputs.Data, 1)
+				} else {
+					inputs.Data = append(inputs.Data, -1)
+				}
 			}
 			var state byte
 			for i := 0; i < 1024; i++ {
