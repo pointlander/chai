@@ -139,7 +139,7 @@ func main() {
 			Mean   float64
 			StdDev float64
 		}
-		cols, rows := 8, 8
+		cols, rows := 32, 32
 		factor := math.Sqrt(2.0 / float64(cols))
 		samples := make(plotter.Values, 0, 1024)
 		for s := 0; s < 256; s++ {
@@ -166,7 +166,7 @@ func main() {
 			} else {
 				inputs.Data = append(inputs.Data, -1)
 			}
-			for i := 0; i < 7; i++ {
+			for i := 0; i < cols-1; i++ {
 				if rnd.Intn(2) == 0 {
 					inputs.Data = append(inputs.Data, 1)
 				} else {
