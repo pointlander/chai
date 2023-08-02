@@ -141,41 +141,57 @@ func main() {
 		}
 		cols, rows := 8, 8
 		factor := math.Sqrt(2.0 / float64(cols))
-		weights := make([]Distribution, 0, cols*rows)
-		for i := 0; i < 8*8; i++ {
-			weights = append(weights, Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()})
-		}
-		input := Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()}
-		layer := NewMatrix(0, cols, rows)
-		for _, w := range weights {
-			layer.Data = append(layer.Data, (rng.NormFloat64()+w.Mean)*w.StdDev)
-		}
-		inputs := NewMatrix(0, cols, 1)
-		if (rng.NormFloat64()+input.Mean)*input.StdDev > 0 {
-			inputs.Data = append(inputs.Data, 1)
-		} else {
-			inputs.Data = append(inputs.Data, 0)
-		}
-		for i := 0; i < 7; i++ {
-			inputs.Data = append(inputs.Data, 0)
-		}
 		samples := make(plotter.Values, 0, 1024)
-		var state byte
-		for i := 0; i < 256*1024; i++ {
-			outputs := Sigmoid(Mul(layer, inputs))
-			state <<= 1
-			if outputs.Data[0] > .5 {
-				state |= 1
+		for s := 0; s < 256; s++ {
+			weights := make([]Distribution, 0, cols*rows)
+			for i := 0; i < cols*rows; i++ {
+				weights = append(weights, Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()})
 			}
-			samples = append(samples, float64(state))
-			inputs = outputs
+			bias := make([]Distribution, 0, rows)
+			for i := 0; i < rows; i++ {
+				bias = append(bias, Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()})
+			}
+			input := Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()}
+			layer := NewMatrix(0, cols, rows)
+			for _, w := range weights {
+				layer.Data = append(layer.Data, (rng.NormFloat64()+w.Mean)*w.StdDev)
+			}
+			b := NewMatrix(0, 1, rows)
+			for _, w := range bias {
+				b.Data = append(b.Data, (rng.NormFloat64()+w.Mean)*w.StdDev)
+			}
+			inputs := NewMatrix(0, cols, 1)
 			if (rng.NormFloat64()+input.Mean)*input.StdDev > 0 {
-				inputs.Data[0] = 1
+				inputs.Data = append(inputs.Data, 1)
 			} else {
-				inputs.Data[0] = 0
+				inputs.Data = append(inputs.Data, -1)
+			}
+			for i := 0; i < 7; i++ {
+				inputs.Data = append(inputs.Data, -1)
+			}
+			var state byte
+			for i := 0; i < 1024; i++ {
+				outputs := Add(Mul(layer, inputs), b)
+				state <<= 1
+				if outputs.Data[0] > 0 {
+					state |= 1
+				}
+				for j := range outputs.Data {
+					if outputs.Data[j] > 0 {
+						outputs.Data[j] = 1
+					} else {
+						outputs.Data[j] = -1
+					}
+				}
+				samples = append(samples, float64(state))
+				inputs = outputs
+				if (rng.NormFloat64()+input.Mean)*input.StdDev > 0 {
+					inputs.Data[0] = 1
+				} else {
+					inputs.Data[0] = -1
+				}
 			}
 		}
-
 		p := plot.New()
 		p.Title.Text = "rnn"
 
