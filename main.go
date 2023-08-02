@@ -140,18 +140,60 @@ func main() {
 			StdDev float64
 		}
 		cols, rows := 32, 32
+
+		shownum := func(a []Distribution) int {
+			x := 0
+			e := 1
+			for _, v := range a {
+				if v.Mean > 0 {
+					x += e
+				}
+				e *= 2
+			}
+			return x
+		}
+		_ = shownum
+
+		type Genome struct {
+			A       []Distribution
+			T       []Distribution
+			Weights []Distribution
+			Bias    []Distribution
+			Fitness float64
+			Cached  bool
+		}
+		target := *FlagTarget
+		size := int(math.Ceil(math.Log2(float64(target))))
+		n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
+
 		factor := math.Sqrt(2.0 / float64(cols))
-		samples := make(plotter.Values, 0, 1024)
-		for s := 0; s < 256; s++ {
-			weights := make([]Distribution, 0, cols*rows)
-			for i := 0; i < cols*rows; i++ {
-				weights = append(weights, Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()})
-			}
-			bias := make([]Distribution, 0, rows)
-			for i := 0; i < rows; i++ {
-				bias = append(bias, Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()})
-			}
-			input := Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()}
+		weights := make([]Distribution, 0, cols*rows)
+		for i := 0; i < cols*rows; i++ {
+			weights = append(weights, Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()})
+		}
+		bias := make([]Distribution, 0, rows)
+		for i := 0; i < rows; i++ {
+			bias = append(bias, Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()})
+		}
+		a := make([]Distribution, 0, n)
+		for i := 0; i < n; i++ {
+			a = append(a, Distribution{Mean: rnd.NormFloat64(), StdDev: rnd.NormFloat64()})
+		}
+		t := make([]Distribution, 0, size)
+		for i := 0; i < size; i++ {
+			t = append(t, Distribution{Mean: rnd.NormFloat64(), StdDev: rnd.NormFloat64()})
+		}
+		g := Genome{
+			A:       a,
+			T:       t,
+			Weights: weights,
+			Bias:    bias,
+		}
+
+		sample := func(g *Genome) (samples plotter.Values, avg, stddev float64) {
+			in := make([]Distribution, 0, 8)
+			in = append(in, g.A...)
+			in = append(in, g.T...)
 			layer := NewMatrix(0, cols, rows)
 			for _, w := range weights {
 				layer.Data = append(layer.Data, (rng.NormFloat64()+w.Mean)*w.StdDev)
@@ -161,12 +203,7 @@ func main() {
 				b.Data = append(b.Data, (rng.NormFloat64()+w.Mean)*w.StdDev)
 			}
 			inputs := NewMatrix(0, cols, 1)
-			if (rng.NormFloat64()+input.Mean)*input.StdDev > 0 {
-				inputs.Data = append(inputs.Data, 1)
-			} else {
-				inputs.Data = append(inputs.Data, -1)
-			}
-			for i := 0; i < cols-1; i++ {
+			for i := 0; i < cols; i++ {
 				if rnd.Intn(2) == 0 {
 					inputs.Data = append(inputs.Data, 1)
 				} else {
@@ -174,28 +211,69 @@ func main() {
 				}
 			}
 			var state uint64
+			cost := 0.0
 			for i := 0; i < 1024; i++ {
-				outputs := Add(Mul(layer, inputs), b)
-				state <<= 1
-				if outputs.Data[0] > 0 {
-					state |= 1
-				}
-				for j := range outputs.Data {
-					if outputs.Data[j] > 0 {
-						outputs.Data[j] = 1
-					} else {
-						outputs.Data[j] = -1
+				x := int64(0)
+				e := int64(1)
+				for _, v := range a {
+					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						x += e
 					}
+					e <<= 1
 				}
-				samples = append(samples, float64(state))
-				inputs = outputs
-				if (rng.NormFloat64()+input.Mean)*input.StdDev > 0 {
-					inputs.Data[0] = 1
-				} else {
-					inputs.Data[0] = -1
+				if x == 0 {
+					continue
+				}
+				tt := int64(0)
+				e = int64(1)
+				for _, v := range t {
+					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						tt += e
+					}
+					e <<= 1
+				}
+				for _, v := range in {
+					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						inputs.Data[0] = 1
+					} else {
+						inputs.Data[0] = -1
+					}
+					outputs := Add(Mul(layer, inputs), b)
+					state <<= 1
+					if outputs.Data[0] > 0 {
+						state |= 1
+					}
+					mask := int64(1 << (n + 1))
+					mask -= 1
+					out := int64(state) & mask
+					c := int64(uint64(target)%uint64(x)) - out
+					if c < 0 {
+						c = -c
+					}
+					c += out
+					ttt := int64(target) - tt
+					if ttt < 0 {
+						ttt = -ttt
+					}
+					c += ttt
+					cost += float64(c) / (3 * float64(target))
+					for j := range outputs.Data {
+						if outputs.Data[j] > 0 {
+							outputs.Data[j] = 1
+						} else {
+							outputs.Data[j] = -1
+						}
+					}
+					samples = append(samples, float64(c))
+					inputs = outputs
 				}
 			}
+			cost /= float64(1024 * len(g.A) * len(g.T))
+			return samples, cost, 0
 		}
+		samples, avg, stddev := sample(&g)
+		fmt.Println(avg, stddev)
+
 		p := plot.New()
 		p.Title.Text = "rnn"
 
