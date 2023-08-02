@@ -173,7 +173,7 @@ func main() {
 					inputs.Data = append(inputs.Data, -1)
 				}
 			}
-			var state byte
+			var state uint64
 			for i := 0; i < 1024; i++ {
 				outputs := Add(Mul(layer, inputs), b)
 				state <<= 1
