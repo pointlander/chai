@@ -159,9 +159,9 @@ func main() {
 		for i := 0; i < 7; i++ {
 			inputs.Data = append(inputs.Data, 0)
 		}
-		var state byte
 		samples := make(plotter.Values, 0, 1024)
-		for i := 0; i < 1024; i++ {
+		var state byte
+		for i := 0; i < 256*1024; i++ {
 			outputs := Sigmoid(Mul(layer, inputs))
 			state <<= 1
 			if outputs.Data[0] > .5 {
@@ -175,6 +175,7 @@ func main() {
 				inputs.Data[0] = 0
 			}
 		}
+
 		p := plot.New()
 		p.Title.Text = "rnn"
 
