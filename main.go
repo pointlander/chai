@@ -211,24 +211,24 @@ func main() {
 				}
 			}
 			var state uint64
-			cost := 0.0
+			cost, total := 0.0, 0.0
 			for i := 0; i < 1024; i++ {
-				x := int64(0)
+				sampledA := int64(0)
 				e := int64(1)
 				for _, v := range a {
 					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
-						x += e
+						sampledA += e
 					}
 					e <<= 1
 				}
-				if x == 0 {
+				if sampledA == 0 {
 					continue
 				}
-				tt := int64(0)
+				sampledT := int64(0)
 				e = int64(1)
 				for _, v := range t {
 					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
-						tt += e
+						sampledT += e
 					}
 					e <<= 1
 				}
@@ -245,18 +245,18 @@ func main() {
 					}
 					mask := int64(1 << (n + 1))
 					mask -= 1
-					out := int64(state) & mask
-					c := int64(uint64(target)%uint64(x)) - out
-					if c < 0 {
-						c = -c
+					masked := int64(state) & mask
+					iCost := int64(uint64(sampledT)%uint64(sampledA)) - masked
+					if iCost < 0 {
+						iCost = -iCost
 					}
-					c += out
-					ttt := int64(target) - tt
-					if ttt < 0 {
-						ttt = -ttt
+					iCost += masked
+					targetCost := int64(target) - sampledT
+					if targetCost < 0 {
+						targetCost = -targetCost
 					}
-					c += ttt
-					cost += float64(c) / (3 * float64(target))
+					iCost += targetCost
+					cost += float64(iCost) / (3 * float64(target))
 					for j := range outputs.Data {
 						if outputs.Data[j] > 0 {
 							outputs.Data[j] = 1
@@ -264,11 +264,12 @@ func main() {
 							outputs.Data[j] = -1
 						}
 					}
-					samples = append(samples, float64(c))
+					samples = append(samples, float64(iCost))
 					inputs = outputs
 				}
+				total++
 			}
-			cost /= float64(1024 * len(g.A) * len(g.T))
+			cost /= (total * float64(len(g.A)*len(g.T)))
 			return samples, cost, 0
 		}
 		samples, avg, stddev := sample(&g)
