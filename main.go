@@ -212,7 +212,7 @@ func main() {
 			}
 		}
 
-		sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev float64) {
+		sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev float64, found bool) {
 			in := make([]Distribution, 0, 8)
 			in = append(in, g.A...)
 			in = append(in, g.T...)
@@ -268,6 +268,11 @@ func main() {
 					mask := int64(1 << (n + 1))
 					mask -= 1
 					masked := int64(state) & mask
+					if masked != 0 && masked != 1 && int64(target)%masked == 0 {
+						fmt.Println(masked, int64(target)/masked)
+						found = true
+						return samples, cost, 0, found
+					}
 					iCost := int64(uint64(sampledT)%uint64(sampledA)) - masked
 					if iCost < 0 {
 						iCost = -iCost
@@ -292,11 +297,16 @@ func main() {
 				total++
 			}
 			cost /= (total * float64(len(g.A)*len(g.T)))
-			return samples, cost, 0
+			return samples, cost, 0, found
 		}
+		done := false
 		d := make(plotter.Values, 0, 8)
 		for i := range pool {
-			dd, avg, _ := sample(rng, &pool[i])
+			dd, avg, _, found := sample(rng, &pool[i])
+			if found {
+				done = true
+				break
+			}
 			pool[i].Fitness = avg
 			pool[i].Cached = true
 			d = append(d, dd...)
@@ -317,7 +327,7 @@ func main() {
 		}
 
 	Search:
-		for {
+		for !done {
 			sort.Slice(pool, func(i, j int) bool {
 				return pool[i].Fitness < pool[j].Fitness
 			})
@@ -337,7 +347,7 @@ func main() {
 					}
 				}
 			}
-			if pool[0].Fitness < 1e-16 {
+			if pool[0].Fitness < 1e-32 {
 				break Search
 			}
 			for i := 0; i < pop/4; i++ {
@@ -380,7 +390,10 @@ func main() {
 				rngs[i] = rand.New(rand.NewSource(int64(i + 1)))
 			}
 			task := func(rng *rand.Rand, i int) {
-				_, avg, _ := sample(rng, &pool[i])
+				_, avg, _, found := sample(rng, &pool[i])
+				if found {
+					done <- nil
+				}
 				pool[i].Fitness = avg
 				pool[i].Cached = true
 				done <- rng
@@ -396,6 +409,9 @@ func main() {
 			}
 			for i < len(pool) {
 				rng := <-done
+				if rnd == nil {
+					break Search
+				}
 				flight--
 
 				if pool[i].Cached {
