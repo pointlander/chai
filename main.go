@@ -409,7 +409,7 @@ func main() {
 			}
 			for i < len(pool) {
 				rng := <-done
-				if rnd == nil {
+				if rng == nil {
 					break Search
 				}
 				flight--
