@@ -212,7 +212,7 @@ func main() {
 			}
 		}
 
-		sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev float64, found bool) {
+		sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev float64, found bool, count float64) {
 			in := make([]Distribution, 0, 8)
 			in = append(in, g.A...)
 			in = append(in, g.T...)
@@ -268,10 +268,13 @@ func main() {
 					mask := int64(1 << (n + 1))
 					mask -= 1
 					masked := int64(state) & mask
+					if big.NewInt(int64(masked)).ProbablyPrime(100) {
+						count++
+					}
 					if masked != 0 && masked != 1 && int64(target)%masked == 0 {
 						fmt.Println(masked, int64(target)/masked)
 						found = true
-						return samples, cost, 0, found
+						return samples, cost, 0, found, count / total
 					}
 					iCost := int64(uint64(sampledT)%uint64(sampledA)) - masked
 					if iCost < 0 {
@@ -297,12 +300,13 @@ func main() {
 				total++
 			}
 			cost /= (total * float64(len(g.A)*len(g.T)))
-			return samples, cost, 0, found
+			return samples, cost, 0, found, count / total
 		}
 		done := false
 		d := make(plotter.Values, 0, 8)
 		for i := range pool {
-			dd, avg, _, found := sample(rng, &pool[i])
+			dd, avg, _, found, count := sample(rng, &pool[i])
+			fmt.Println(count)
 			if found {
 				done = true
 				break
@@ -390,7 +394,7 @@ func main() {
 				rngs[i] = rand.New(rand.NewSource(int64(i + 1)))
 			}
 			task := func(rng *rand.Rand, i int) {
-				_, avg, _, found := sample(rng, &pool[i])
+				_, avg, _, found, _ := sample(rng, &pool[i])
 				if found {
 					done <- nil
 				}
