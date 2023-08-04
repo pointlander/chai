@@ -306,7 +306,7 @@ func main() {
 		d := make(plotter.Values, 0, 8)
 		for i := range pool {
 			dd, avg, _, found, count := sample(rng, &pool[i])
-			fmt.Println(count)
+			fmt.Println(i, count)
 			if found {
 				done = true
 				break
@@ -451,24 +451,30 @@ func main() {
 	number := big.NewInt(1)
 	number = number.Lsh(number, 31)
 	number = number.Sub(number, big.NewInt(1))
-	bigPrimes := make([]*big.Int, 2)
-	for i := 0; i < 2; i++ {
-		for {
-			if number.ProbablyPrime(100) {
-				cp := big.NewInt(0)
-				cp.Set(number)
-				bigPrimes[i] = cp
+	generate := func() {
+		bigPrimes := make([]*big.Int, 2)
+		for i := 0; i < 2; i++ {
+			for {
+				if number.ProbablyPrime(100) {
+					cp := big.NewInt(0)
+					cp.Set(number)
+					bigPrimes[i] = cp
+					number = number.Sub(number, big.NewInt(1))
+					break
+				}
 				number = number.Sub(number, big.NewInt(1))
-				break
 			}
-			number = number.Sub(number, big.NewInt(1))
 		}
+		for _, v := range bigPrimes {
+			fmt.Println(v.String())
+		}
+		composite := big.Int{}
+		composite.Mul(bigPrimes[0], bigPrimes[1])
+		fmt.Println(composite.String())
 	}
-	for _, v := range bigPrimes {
-		fmt.Println(v.String())
-	}
-	number.Mul(bigPrimes[0], bigPrimes[1])
-	fmt.Println(number.String())
+	generate()
+	generate()
+	generate()
 }
 
 // BigGenetic implements a genetic algorithm with big integers
