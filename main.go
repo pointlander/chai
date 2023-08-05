@@ -213,9 +213,6 @@ func main() {
 		}
 
 		sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev float64, found bool, percent float64) {
-			in := make([]Distribution, 0, 8)
-			in = append(in, g.A...)
-			in = append(in, g.T...)
 			layer := NewMatrix(0, cols, rows)
 			for _, w := range g.Weights {
 				layer.Data = append(layer.Data, (rng.NormFloat64()+w.Mean)*w.StdDev)
@@ -235,26 +232,19 @@ func main() {
 			var state uint64
 			cost, total, count := 0.0, 0.0, 0.0
 			for i := 0; i < 16; i++ {
-				sampledA := int64(0)
-				e := int64(1)
-				for _, v := range g.A {
-					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
-						sampledA += e
-					}
-					e <<= 1
-				}
-				if sampledA == 0 {
-					continue
-				}
 				sampledT := int64(0)
-				e = int64(1)
+				e := int64(1)
 				for _, v := range g.T {
 					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
 						sampledT += e
 					}
 					e <<= 1
 				}
-				for _, v := range in {
+				targetCost := int64(target) - sampledT
+				if targetCost < 0 {
+					targetCost = -targetCost
+				}
+				for _, v := range g.A {
 					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
 						inputs.Data[0] = 1
 					} else {
@@ -277,17 +267,17 @@ func main() {
 						found = true
 						return samples, cost, 0, found, percent / count
 					}
-					iCost := int64(uint64(sampledT)%uint64(sampledA)) - masked
+					iCost := int64(0)
+					if masked != 0 {
+						iCost += sampledT % masked
+					} else {
+						iCost += sampledT
+					}
 					if iCost < 0 {
 						iCost = -iCost
 					}
-					iCost += masked
-					targetCost := int64(target) - sampledT
-					if targetCost < 0 {
-						targetCost = -targetCost
-					}
 					iCost += targetCost
-					cost += float64(iCost) / (3 * float64(target))
+					cost += float64(iCost) / (2 * float64(target))
 					for j := range outputs.Data {
 						if outputs.Data[j] > 0 {
 							outputs.Data[j] = 1
