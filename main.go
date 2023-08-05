@@ -475,6 +475,8 @@ func main() {
 	generate()
 	generate()
 	generate()
+	generate()
+	generate()
 }
 
 // BigGenetic implements a genetic algorithm with big integers
