@@ -212,7 +212,7 @@ func main() {
 			}
 		}
 
-		sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev float64, found bool, count float64) {
+		sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev float64, found bool, percent float64) {
 			in := make([]Distribution, 0, 8)
 			in = append(in, g.A...)
 			in = append(in, g.T...)
@@ -233,7 +233,7 @@ func main() {
 				}
 			}
 			var state uint64
-			cost, total := 0.0, 0.0
+			cost, total, count := 0.0, 0.0, 0.0
 			for i := 0; i < 16; i++ {
 				sampledA := int64(0)
 				e := int64(1)
@@ -269,12 +269,13 @@ func main() {
 					mask -= 1
 					masked := int64(state) & mask
 					if big.NewInt(int64(masked)).ProbablyPrime(100) {
-						count++
+						percent++
 					}
+					count++
 					if masked != 0 && masked != 1 && int64(target)%masked == 0 {
 						fmt.Println(masked, int64(target)/masked)
 						found = true
-						return samples, cost, 0, found, count / total
+						return samples, cost, 0, found, percent / count
 					}
 					iCost := int64(uint64(sampledT)%uint64(sampledA)) - masked
 					if iCost < 0 {
@@ -300,7 +301,7 @@ func main() {
 				total++
 			}
 			cost /= (total * float64(len(g.A)*len(g.T)))
-			return samples, cost, 0, found, count / total
+			return samples, cost, 0, found, percent / count
 		}
 		done := false
 		d := make(plotter.Values, 0, 8)
