@@ -435,16 +435,16 @@ func main() {
 				flight++
 			}
 			for i < len(pool) {
+				if pool[i].Cached {
+					i++
+					continue
+				}
+
 				rng := <-done
 				if rng == nil {
 					break Search
 				}
 				flight--
-
-				if pool[i].Cached {
-					i++
-					continue
-				}
 
 				go task(rng, i)
 				i++
