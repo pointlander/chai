@@ -142,7 +142,7 @@ func main() {
 			Mean   float64
 			StdDev float64
 		}
-		const pop = 128
+		const pop = 256
 		const cols, rows = 32, 32
 		zero := big.Int{}
 		zero.SetUint64(0)
@@ -249,7 +249,7 @@ func main() {
 			}
 			state := big.Int{}
 			cost, total, count := big.Float{}, 0.0, 0.0
-			for i := 0; i < 16; i++ {
+			for i := 0; i < 32; i++ {
 				sampledT := big.Int{}
 				e := big.Int{}
 				e.SetInt64(1)
@@ -503,6 +503,32 @@ func main() {
 
 	number = big.NewInt(1)
 	number = number.Lsh(number, 64)
+	number = number.Sub(number, big.NewInt(1))
+	generate = func() {
+		bigPrimes := make([]*big.Int, 2)
+		for i := 0; i < 2; i++ {
+			for {
+				if number.ProbablyPrime(100) {
+					cp := big.NewInt(0)
+					cp.Set(number)
+					bigPrimes[i] = cp
+					number = number.Sub(number, big.NewInt(1))
+					break
+				}
+				number = number.Sub(number, big.NewInt(1))
+			}
+		}
+		for _, v := range bigPrimes {
+			fmt.Println(v.String())
+		}
+		composite := big.Int{}
+		composite.Mul(bigPrimes[0], bigPrimes[1])
+		fmt.Println(composite.String())
+	}
+	generate()
+
+	number = big.NewInt(1)
+	number = number.Lsh(number, 128)
 	number = number.Sub(number, big.NewInt(1))
 	generate = func() {
 		bigPrimes := make([]*big.Int, 2)
