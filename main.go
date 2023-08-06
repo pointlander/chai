@@ -37,6 +37,8 @@ var (
 	FlagSwarm = flag.Bool("swarm", false, "swarm mode")
 	// FlagTarget is the target value
 	FlagTarget = flag.Int("target", 77, "target value")
+	// FlagNumber is a number to factor
+	FlagNumber = flag.String("number", "77", "number to factor")
 )
 
 // Norm is the normal distribution
@@ -142,15 +144,22 @@ func main() {
 		}
 		const pop = 128
 		const cols, rows = 32, 32
+		zero := big.Int{}
+		zero.SetUint64(0)
+		one := big.Int{}
+		one.SetUint64(1)
+		two := big.Float{}
+		two.SetUint64(2)
 
-		shownum := func(a []Distribution) int {
-			x := 0
-			e := 1
+		shownum := func(a []Distribution) big.Int {
+			x := big.Int{}
+			e := big.Int{}
+			e.SetInt64(1)
 			for _, v := range a {
 				if v.Mean > 0 {
-					x += e
+					x.Add(&x, &e)
 				}
-				e *= 2
+				e.Lsh(&e, 1)
 			}
 			return x
 		}
@@ -160,13 +169,17 @@ func main() {
 			T       []Distribution
 			Weights []Distribution
 			Bias    []Distribution
-			Fitness float64
+			Fitness big.Float
 			Cached  bool
 		}
 		pool := make([]Genome, 0, pop)
-		target := *FlagTarget
-		size := int(math.Ceil(math.Log2(float64(target))))
-		n := int(math.Ceil(math.Log2(math.Sqrt(float64(target)))))
+		target := big.Int{}
+		target.SetString(*FlagNumber, 10)
+		size := target.BitLen()
+		nn := big.Float{}
+		nn.SetInt(&target)
+		nn.Sqrt(&nn)
+		n := nn.MantExp(nil)
 
 		factor := math.Sqrt(2.0 / float64(cols))
 		for i := 0; i < pop; i++ {
@@ -212,7 +225,12 @@ func main() {
 			}
 		}
 
-		sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev float64, found bool, percent float64) {
+		sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev big.Float, found bool, percent float64) {
+			mask := big.Int{}
+			mask.SetUint64(1)
+			mask.Lsh(&mask, uint(n+1))
+			mask.Sub(&mask, &one)
+
 			layer := NewMatrix(0, cols, rows)
 			for _, w := range g.Weights {
 				layer.Data = append(layer.Data, (rng.NormFloat64()+w.Mean)*w.StdDev)
@@ -229,21 +247,22 @@ func main() {
 					inputs.Data = append(inputs.Data, -1)
 				}
 			}
-			var state uint64
-			cost, total, count := 0.0, 0.0, 0.0
+			state := big.Int{}
+			cost, total, count := big.Float{}, 0.0, 0.0
 			for i := 0; i < 16; i++ {
-				sampledT := int64(0)
-				e := int64(1)
+				sampledT := big.Int{}
+				e := big.Int{}
+				e.SetInt64(1)
 				for _, v := range g.T {
 					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
-						sampledT += e
+						sampledT.Add(&sampledT, &e)
 					}
-					e <<= 1
+					e.Lsh(&e, 1)
 				}
-				targetCost := int64(target) - sampledT
-				if targetCost < 0 {
-					targetCost = -targetCost
-				}
+
+				targetCost := big.Int{}
+				targetCost.Sub(&target, &sampledT)
+				targetCost.Abs(&targetCost)
 				for _, v := range g.A {
 					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
 						inputs.Data[0] = 1
@@ -251,33 +270,41 @@ func main() {
 						inputs.Data[0] = -1
 					}
 					outputs := Add(Mul(layer, inputs), b)
-					state <<= 1
+					state.Lsh(&state, 1)
 					if outputs.Data[0] > 0 {
-						state |= 1
+						state.Or(&state, &one)
 					}
-					mask := int64(1 << (n + 1))
-					mask -= 1
-					masked := int64(state) & mask
-					if big.NewInt(int64(masked)).ProbablyPrime(100) {
+					state.And(&state, &mask)
+					if state.ProbablyPrime(100) {
 						percent++
 					}
 					count++
-					if masked != 0 && masked != 1 && int64(target)%masked == 0 {
-						fmt.Println(masked, int64(target)/masked)
-						found = true
-						return samples, cost, 0, found, percent / count
+					if state.Cmp(&zero) != 0 && state.Cmp(&one) != 0 {
+						mod := big.Int{}
+						mod.Mod(&target, &state)
+						if mod.Cmp(&zero) == 0 {
+							div := big.Int{}
+							div.Div(&target, &state)
+							fmt.Println(state.String(), div.String())
+							found = true
+							return samples, cost, big.Float{}, found, percent / count
+						}
 					}
-					iCost := int64(0)
-					if masked != 0 {
-						iCost += sampledT % masked
+					iCost := big.Int{}
+					if state.Cmp(&zero) != 0 {
+						iCost.Mod(&sampledT, &state)
 					} else {
-						iCost += sampledT
+						iCost.Set(&sampledT)
 					}
-					if iCost < 0 {
-						iCost = -iCost
-					}
-					iCost += targetCost
-					cost += float64(iCost) / (2 * float64(target))
+					iCost.Abs(&iCost)
+					iCost.Add(&iCost, &targetCost)
+					denom := big.Float{}
+					denom.SetInt(&target)
+					denom.Mul(&denom, &two)
+					num := big.Float{}
+					num.SetInt(&iCost)
+					num.Quo(&num, &denom)
+					cost.Add(&cost, &num)
 					for j := range outputs.Data {
 						if outputs.Data[j] > 0 {
 							outputs.Data[j] = 1
@@ -285,13 +312,14 @@ func main() {
 							outputs.Data[j] = -1
 						}
 					}
-					samples = append(samples, float64(iCost))
+					s, _ := num.Float64()
+					samples = append(samples, s)
 					inputs = outputs
 				}
 				total++
 			}
-			cost /= (total * float64(len(g.A)*len(g.T)))
-			return samples, cost, 0, found, percent / count
+			cost.Quo(&cost, big.NewFloat((total * float64(len(g.A)*len(g.T)))))
+			return samples, cost, big.Float{}, found, percent / count
 		}
 		done := false
 		d := make(plotter.Values, 0, 8)
@@ -324,25 +352,29 @@ func main() {
 	Search:
 		for !done {
 			sort.Slice(pool, func(i, j int) bool {
-				return pool[i].Fitness < pool[j].Fitness
+				return pool[i].Fitness.Cmp(&pool[j].Fitness) < 0
 			})
 			pool = pool[:pop]
-			fmt.Println(pool[0].Fitness)
+			fmt.Println(pool[0].Fitness.String())
 			for i := range pool {
 				x := shownum(pool[i].A)
-				if x == 0 {
+				if x.Cmp(&zero) == 0 {
 					continue
 				}
-				if target%x == 0 {
-					if x == 1 || x == target {
+				mod := big.Int{}
+				mod.Mod(&target, &x)
+				if mod.Cmp(&zero) == 0 {
+					if x.Cmp(&one) == 1 || x.Cmp(&target) == 0 {
 						continue
 					} else {
-						fmt.Println(x, target/x)
+						div := big.Int{}
+						div.Div(&target, &x)
+						fmt.Println(x.String(), div.String())
 						break Search
 					}
 				}
 			}
-			if pool[0].Fitness < 1e-32 {
+			if pool[0].Fitness.Cmp(big.NewFloat(1e-32)) < 0 {
 				break Search
 			}
 			for i := 0; i < pop/4; i++ {
@@ -467,6 +499,32 @@ func main() {
 	generate()
 	generate()
 	generate()
+	generate()
+
+	number = big.NewInt(1)
+	number = number.Lsh(number, 64)
+	number = number.Sub(number, big.NewInt(1))
+	generate = func() {
+		bigPrimes := make([]*big.Int, 2)
+		for i := 0; i < 2; i++ {
+			for {
+				if number.ProbablyPrime(100) {
+					cp := big.NewInt(0)
+					cp.Set(number)
+					bigPrimes[i] = cp
+					number = number.Sub(number, big.NewInt(1))
+					break
+				}
+				number = number.Sub(number, big.NewInt(1))
+			}
+		}
+		for _, v := range bigPrimes {
+			fmt.Println(v.String())
+		}
+		composite := big.Int{}
+		composite.Mul(bigPrimes[0], bigPrimes[1])
+		fmt.Println(composite.String())
+	}
 	generate()
 }
 
