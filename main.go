@@ -275,6 +275,7 @@ func RNN(seed int) {
 		Weights []Distribution
 		Bias    []Distribution
 		Fitness big.Float
+		StdDev  big.Float
 		Cached  bool
 	}
 	pool := make([]Genome, 0, pop)
@@ -392,7 +393,14 @@ func RNN(seed int) {
 						div.Div(&target, &state)
 						fmt.Println(state.String(), div.String())
 						found = true
-						return samples, cost, big.Float{}, found, percent / count
+						scale := big.NewFloat((total * float64(len(g.A))))
+						cost.Quo(&cost, scale)
+						stddev.Quo(&stddev, scale)
+						squared := big.Float{}
+						squared.Mul(&cost, &cost)
+						stddev.Sub(&stddev, &squared)
+						stddev.Sqrt(&stddev)
+						return samples, avg, stddev, found, percent / count
 					}
 				}
 				iCost := big.Int{}
@@ -410,6 +418,8 @@ func RNN(seed int) {
 				num.SetInt(&iCost)
 				num.Quo(&num, &denom)
 				cost.Add(&cost, &num)
+				num.Mul(&num, &num)
+				stddev.Add(&stddev, &num)
 				for j := range outputs.Data {
 					if outputs.Data[j] > 0 {
 						outputs.Data[j] = 1
@@ -423,19 +433,27 @@ func RNN(seed int) {
 			}
 			total++
 		}
-		cost.Quo(&cost, big.NewFloat((total * float64(len(g.A)*len(g.T)))))
-		return samples, cost, big.Float{}, found, percent / count
+
+		scale := big.NewFloat((total * float64(len(g.A))))
+		cost.Quo(&cost, scale)
+		stddev.Quo(&stddev, scale)
+		squared := big.Float{}
+		squared.Mul(&cost, &cost)
+		stddev.Sub(&stddev, &squared)
+		stddev.Sqrt(&stddev)
+		return samples, cost, stddev, found, percent / count
 	}
 	done := false
 	d := make(plotter.Values, 0, 8)
 	for i := range pool {
-		dd, avg, _, found, count := sample(rnd, &pool[i])
-		fmt.Println(i, count)
+		dd, avg, stddev, found, count := sample(rnd, &pool[i])
+		fmt.Println(i, count, avg.String(), stddev.String())
 		if found {
 			done = true
 			break
 		}
 		pool[i].Fitness = avg
+		pool[i].StdDev = stddev
 		pool[i].Cached = true
 		d = append(d, dd...)
 	}
@@ -465,7 +483,7 @@ Search:
 			return pool[i].Fitness.Cmp(&pool[j].Fitness) < 0
 		})
 		pool = pool[:pop]
-		fmt.Println(pool[0].Fitness.String())
+		fmt.Println(pool[0].Fitness.String(), pool[0].StdDev.String())
 		for i := range pool {
 			x := shownum(pool[i].A)
 			if x.Cmp(&zero) == 0 {
@@ -523,11 +541,12 @@ Search:
 		done := make(chan *rand.Rand, 8)
 		i, flight := 0, 0
 		task := func(rng *rand.Rand, i int) {
-			_, avg, _, found, _ := sample(rng, &pool[i])
+			_, avg, stddev, found, _ := sample(rng, &pool[i])
 			if found {
 				done <- nil
 			}
 			pool[i].Fitness = avg
+			pool[i].StdDev = stddev
 			pool[i].Cached = true
 			done <- rng
 		}
