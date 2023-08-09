@@ -276,6 +276,7 @@ func RNN(seed int) {
 		Bias    []Distribution
 		Fitness big.Float
 		StdDev  big.Float
+		Rank    float64
 		Cached  bool
 	}
 	pool := make([]Genome, 0, pop)
@@ -479,8 +480,29 @@ func RNN(seed int) {
 
 Search:
 	for !done {
+		graph := pagerank.NewGraph64()
+		for i := range pool {
+			for j := i + 1; j < len(pool); j++ {
+				avga, _ := pool[i].Fitness.Float64()
+				avgb, _ := pool[j].Fitness.Float64()
+				avg := avga - avgb
+				if avg < 0 {
+					avg = -avg
+				}
+				stddeva, _ := pool[i].StdDev.Float64()
+				stddevb, _ := pool[j].StdDev.Float64()
+				stddev := math.Sqrt(stddeva*stddeva + stddevb*stddevb)
+				z := stddev / avg
+				graph.Link(uint64(i), uint64(j), z)
+				graph.Link(uint64(j), uint64(i), z)
+			}
+		}
+		graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
+			pool[node].Rank = rank
+		})
 		sort.Slice(pool, func(i, j int) bool {
-			return pool[i].Fitness.Cmp(&pool[j].Fitness) < 0
+			//return pool[i].Fitness.Cmp(&pool[j].Fitness) < 0
+			return pool[i].Rank > pool[j].Rank
 		})
 		pool = pool[:pop]
 		fmt.Println(pool[0].Fitness.String(), pool[0].StdDev.String())
