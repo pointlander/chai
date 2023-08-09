@@ -435,6 +435,7 @@ Search:
 		graph := pagerank.NewGraph64()
 		for i := range pool {
 			for j := i + 1; j < len(pool); j++ {
+				// http://homework.uoregon.edu/pub/class/es202/ztest.html
 				avga, _ := pool[i].Fitness.Float64()
 				avgb, _ := pool[j].Fitness.Float64()
 				avg := avga - avgb
