@@ -142,24 +142,8 @@ func main() {
 		panic(err)
 	}
 
-	j := math.MaxUint32 >> 16
-	primes := make([]int, 2)
-	for i := 0; i < 2; i++ {
-		for {
-			if big.NewInt(int64(j)).ProbablyPrime(100) {
-				primes[i] = j
-				j--
-				break
-			}
-			j--
-		}
-	}
-	fmt.Println(primes, primes[0]*primes[1])
-
-	number := big.NewInt(1)
-	number = number.Lsh(number, 31)
-	number = number.Sub(number, big.NewInt(1))
-	generate := func() {
+	one := big.NewInt(1)
+	generate := func(number *big.Int) {
 		bigPrimes := make([]*big.Int, 2)
 		for i := 0; i < 2; i++ {
 			for {
@@ -167,76 +151,44 @@ func main() {
 					cp := big.NewInt(0)
 					cp.Set(number)
 					bigPrimes[i] = cp
-					number = number.Sub(number, big.NewInt(1))
+					number = number.Sub(number, one)
 					break
 				}
-				number = number.Sub(number, big.NewInt(1))
+				number = number.Sub(number, one)
 			}
 		}
 		for _, v := range bigPrimes {
-			fmt.Println(v.String())
+			fmt.Printf("%s ", v.String())
 		}
+		fmt.Println()
 		composite := big.Int{}
 		composite.Mul(bigPrimes[0], bigPrimes[1])
 		fmt.Println(composite.String())
 	}
-	generate()
-	generate()
-	generate()
-	generate()
-	generate()
+
+	number := big.NewInt(1)
+	number = number.Lsh(number, 16)
+	number = number.Sub(number, one)
+	generate(number)
+
+	number = big.NewInt(1)
+	number = number.Lsh(number, 31)
+	number = number.Sub(number, one)
+	generate(number)
+	generate(number)
+	generate(number)
+	generate(number)
+	generate(number)
 
 	number = big.NewInt(1)
 	number = number.Lsh(number, 64)
 	number = number.Sub(number, big.NewInt(1))
-	generate = func() {
-		bigPrimes := make([]*big.Int, 2)
-		for i := 0; i < 2; i++ {
-			for {
-				if number.ProbablyPrime(100) {
-					cp := big.NewInt(0)
-					cp.Set(number)
-					bigPrimes[i] = cp
-					number = number.Sub(number, big.NewInt(1))
-					break
-				}
-				number = number.Sub(number, big.NewInt(1))
-			}
-		}
-		for _, v := range bigPrimes {
-			fmt.Println(v.String())
-		}
-		composite := big.Int{}
-		composite.Mul(bigPrimes[0], bigPrimes[1])
-		fmt.Println(composite.String())
-	}
-	generate()
+	generate(number)
 
 	number = big.NewInt(1)
 	number = number.Lsh(number, 128)
 	number = number.Sub(number, big.NewInt(1))
-	generate = func() {
-		bigPrimes := make([]*big.Int, 2)
-		for i := 0; i < 2; i++ {
-			for {
-				if number.ProbablyPrime(100) {
-					cp := big.NewInt(0)
-					cp.Set(number)
-					bigPrimes[i] = cp
-					number = number.Sub(number, big.NewInt(1))
-					break
-				}
-				number = number.Sub(number, big.NewInt(1))
-			}
-		}
-		for _, v := range bigPrimes {
-			fmt.Println(v.String())
-		}
-		composite := big.Int{}
-		composite.Mul(bigPrimes[0], bigPrimes[1])
-		fmt.Println(composite.String())
-	}
-	generate()
+	generate(number)
 }
 
 // RNN implements a recurrent neural network for factoring integers
