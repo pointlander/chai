@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math"
-	"math/big"
 	"math/rand"
 	"runtime"
 	"sort"
@@ -28,20 +27,14 @@ func ProofOfWork(seed int) {
 	}
 	const pop = 256
 	const cols, rows = 64, 64
-	zero := big.Int{}
-	zero.SetUint64(0)
-	one := big.Int{}
-	one.SetUint64(1)
-	two := big.Float{}
-	two.SetUint64(2)
 
 	type Genome struct {
 		A       []Distribution
 		T       []Distribution
 		Weights []Distribution
 		Bias    []Distribution
-		Fitness big.Float
-		StdDev  big.Float
+		Fitness float64
+		StdDev  float64
 		Rank    float64
 		Cached  bool
 	}
@@ -94,12 +87,7 @@ func ProofOfWork(seed int) {
 		}
 	}
 
-	sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev big.Float, found bool) {
-		mask := big.Int{}
-		mask.SetUint64(1)
-		mask.Lsh(&mask, uint(n+1))
-		mask.Sub(&mask, &one)
-
+	sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev float64, found bool) {
 		layer := NewMatrix(0, cols, rows)
 		for _, w := range g.Weights {
 			layer.Data = append(layer.Data, (rng.NormFloat64()+w.Mean)*w.StdDev)
@@ -116,9 +104,9 @@ func ProofOfWork(seed int) {
 				inputs.Data = append(inputs.Data, -1)
 			}
 		}
-		cost, total := big.Float{}, 0.0
+		cost, total := 0.0, 0.0
 		for i := 0; i < 32; i++ {
-			targetCost := big.Int{}
+			targetCost := 0
 			sampledT := make([]byte, 0, size)
 			var buffer byte
 			for i, v := range g.T {
@@ -130,7 +118,7 @@ func ProofOfWork(seed int) {
 					sampledT = append(sampledT, buffer)
 					for j := 0; j < 8; j++ {
 						if (target[i/8]>>uint(j))&1 != (buffer>>uint(j))&1 {
-							targetCost.Add(&targetCost, &one)
+							targetCost++
 						}
 					}
 					buffer = 0
@@ -153,26 +141,26 @@ func ProofOfWork(seed int) {
 				input = append(input, byte(state&0xff), byte((state>>8)&0xff), byte((state>>16)&0xff), byte((state>>24)&0xff))
 				input = append(input, sampledT...)
 				output := sha256.Sum256(input)
-				iCost := big.Int{}
+				iCost := 0
 			Count:
 				for _, v := range output {
 					for j := 0; j < 8; j++ {
 						if 0x80&(v>>uint(j)) == 0 {
-							iCost.Add(&iCost, big.NewInt(1))
+							iCost++
 						} else {
 							break Count
 						}
 					}
 				}
-				iCost.Sub(big.NewInt(256), &iCost)
-				iCost.Add(&iCost, &targetCost)
-				denom := big.NewFloat(1)
-				num := big.Float{}
-				num.SetInt(&iCost)
-				num.Quo(&num, denom)
-				cost.Add(&cost, &num)
-				num.Mul(&num, &num)
-				stddev.Add(&stddev, &num)
+				iCost = 256 - iCost
+				iCost += targetCost
+				denom := 1.0
+				num := 0.0
+				num = float64(iCost)
+				num /= denom
+				cost += num
+				num *= num
+				stddev += num
 
 				for j := range outputs.Data {
 					if outputs.Data[j] > 0 {
@@ -181,27 +169,26 @@ func ProofOfWork(seed int) {
 						outputs.Data[j] = -1
 					}
 				}
-				s, _ := num.Float64()
-				samples = append(samples, s)
+				samples = append(samples, float64(iCost))
 				inputs = outputs
 			}
 			total++
 		}
 
-		scale := big.NewFloat((total * float64(len(g.A))))
-		cost.Quo(&cost, scale)
-		stddev.Quo(&stddev, scale)
-		squared := big.Float{}
-		squared.Mul(&cost, &cost)
-		stddev.Sub(&stddev, &squared)
-		stddev.Sqrt(&stddev)
+		scale := total * float64(len(g.A))
+		cost /= scale
+		stddev /= scale
+		squared := 0.0
+		squared = cost * cost
+		stddev -= squared
+		stddev = math.Sqrt(stddev)
 		return samples, cost, stddev, found
 	}
 	done := false
 	d := make(plotter.Values, 0, 8)
 	for i := range pool {
 		dd, avg, stddev, found := sample(rnd, &pool[i])
-		fmt.Println(i, avg.String(), stddev.String())
+		fmt.Println(i, avg, stddev)
 		if found {
 			done = true
 			break
@@ -221,7 +208,7 @@ func ProofOfWork(seed int) {
 	}
 	p.Add(histogram)
 
-	err = p.Save(8*vg.Inch, 8*vg.Inch, "rnn.png")
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "proof_of_work.png")
 	if err != nil {
 		panic(err)
 	}
@@ -255,12 +242,12 @@ Search:
 			pool[node].Rank = rank
 		})*/
 		sort.Slice(pool, func(i, j int) bool {
-			return pool[i].Fitness.Cmp(&pool[j].Fitness) < 0
+			return pool[i].Fitness < pool[j].Fitness
 			//return pool[i].Rank > pool[j].Rank
 		})
 		pool = pool[:pop]
-		fmt.Println(pool[0].Fitness.String(), pool[0].StdDev.String())
-		if pool[0].Fitness.Cmp(big.NewFloat(1e-32)) < 0 {
+		fmt.Println(pool[0].Fitness, pool[0].StdDev)
+		if pool[0].Fitness < 1e-32 {
 			break Search
 		}
 		for i := 0; i < pop/4; i++ {
