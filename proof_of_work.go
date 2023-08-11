@@ -27,6 +27,7 @@ func ProofOfWork(seed int) {
 	}
 	const pop = 256
 	const cols, rows = 64, 64
+	const work = 200
 
 	type Genome struct {
 		A       []Distribution
@@ -161,6 +162,27 @@ func ProofOfWork(seed int) {
 				cost += num
 				num *= num
 				stddev += num
+
+				real := make([]byte, 0, size)
+				real = append(real, byte(state&0xff), byte((state>>8)&0xff), byte((state>>16)&0xff), byte((state>>24)&0xff))
+				real = append(real, target...)
+				output = sha256.Sum256(real)
+				iCost = 0
+			Count2:
+				for _, v := range output {
+					for j := 0; j < 8; j++ {
+						if 0x80&(v>>uint(j)) == 0 {
+							iCost++
+						} else {
+							break Count2
+						}
+					}
+				}
+				if iCost >= work {
+					found = true
+					fmt.Println("found", iCost)
+					break
+				}
 
 				for j := range outputs.Data {
 					if outputs.Data[j] > 0 {
