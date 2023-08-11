@@ -40,12 +40,11 @@ func ProofOfWork(seed int) {
 		Cached  bool
 	}
 	pool := make([]Genome, 0, pop)
-	/*target := make([]byte, 0, 1024)0, 1024)
-	for i := 0; i < 1024; i++
+	target := make([]byte, 0, 1024)
 	for i := 0; i < 1024; i++ {
 		target = append(target, byte(rnd.Intn(256)))
-	}*/
-	target := []byte("And God said, Let there be light: and there was light.")
+	}
+	//target := []byte("And God said, Let there be light: and there was light.")
 	size := len(target) * 8
 	n := 32
 
