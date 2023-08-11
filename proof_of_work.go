@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sort"
 
+	"github.com/pointlander/pagerank"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -26,7 +27,7 @@ func ProofOfWork(seed int) {
 		StdDev float64
 	}
 	const pop = 256
-	const cols, rows = 64, 64
+	const cols, rows = 256, 256
 	const work = 24
 
 	type Genome struct {
@@ -246,18 +247,18 @@ func ProofOfWork(seed int) {
 
 Search:
 	for !done {
-		/*graph := pagerank.NewGraph64()
+		graph := pagerank.NewGraph64()
 		for i := range pool {
 			for j := i + 1; j < len(pool); j++ {
 				// http://homework.uoregon.edu/pub/class/es202/ztest.html
-				avga, _ := pool[i].Fitness.Float64()
-				avgb, _ := pool[j].Fitness.Float64()
+				avga := pool[i].Fitness
+				avgb := pool[j].Fitness
 				avg := avga - avgb
 				if avg < 0 {
 					avg = -avg
 				}
-				stddeva, _ := pool[i].StdDev.Float64()
-				stddevb, _ := pool[j].StdDev.Float64()
+				stddeva := pool[i].StdDev
+				stddevb := pool[j].StdDev
 				stddev := math.Sqrt(stddeva*stddeva + stddevb*stddevb)
 				z := stddev / avg
 				graph.Link(uint64(i), uint64(j), z)
@@ -266,10 +267,10 @@ Search:
 		}
 		graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
 			pool[node].Rank = rank
-		})*/
+		})
 		sort.Slice(pool, func(i, j int) bool {
-			return pool[i].Fitness < pool[j].Fitness
-			//return pool[i].Rank > pool[j].Rank
+			//return pool[i].Fitness < pool[j].Fitness
+			return pool[i].Rank > pool[j].Rank
 		})
 		pool = pool[:pop]
 		fmt.Println(pool[0].Fitness, pool[0].StdDev)
