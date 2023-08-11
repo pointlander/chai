@@ -160,13 +160,9 @@ func ProofOfWork(seed int) {
 				}
 				iCost = 256 - iCost
 				iCost += targetCost
-				denom := 1.0
-				num := 0.0
-				num = float64(iCost)
-				num /= denom
-				cost += num
-				num *= num
-				stddev += num
+				c := float64(iCost)
+				cost += c
+				stddev += c * c
 
 				real := make([]byte, 0, size)
 				real = append(real, byte(state&0xff), byte((state>>8)&0xff), byte((state>>16)&0xff), byte((state>>24)&0xff))
