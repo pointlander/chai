@@ -27,7 +27,7 @@ func ProofOfWork(seed int) {
 	}
 	const pop = 256
 	const cols, rows = 64, 64
-	const work = 200
+	const work = 24
 
 	type Genome struct {
 		A       []Distribution
@@ -40,6 +40,11 @@ func ProofOfWork(seed int) {
 		Cached  bool
 	}
 	pool := make([]Genome, 0, pop)
+	/*target := make([]byte, 0, 1024)0, 1024)
+	for i := 0; i < 1024; i++
+	for i := 0; i < 1024; i++ {
+		target = append(target, byte(rnd.Intn(256)))
+	}*/
 	target := []byte("And God said, Let there be light: and there was light.")
 	size := len(target) * 8
 	n := 32
@@ -146,7 +151,7 @@ func ProofOfWork(seed int) {
 			Count:
 				for _, v := range output {
 					for j := 0; j < 8; j++ {
-						if 0x80&(v>>uint(j)) == 0 {
+						if 0x80&(v<<uint(j)) == 0 {
 							iCost++
 						} else {
 							break Count
@@ -171,7 +176,7 @@ func ProofOfWork(seed int) {
 			Count2:
 				for _, v := range output {
 					for j := 0; j < 8; j++ {
-						if 0x80&(v>>uint(j)) == 0 {
+						if 0x80&(v<<uint(j)) == 0 {
 							iCost++
 						} else {
 							break Count2
