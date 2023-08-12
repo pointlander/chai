@@ -21,7 +21,7 @@ import (
 // ProofOfWork implements a recurrent neural network for computing a proof of work
 func ProofOfWork(seed int) {
 	cpus := runtime.NumCPU()
-	rnd := rand.New(rand.NewSource(int64(seed)))
+	rng := rand.New(rand.NewSource(int64(seed)))
 	type Distribution struct {
 		Mean   float64
 		StdDev float64
@@ -43,7 +43,7 @@ func ProofOfWork(seed int) {
 	pool := make([]Genome, 0, pop)
 	target := make([]byte, 0, 1024)
 	for i := 0; i < 1024; i++ {
-		target = append(target, byte(rnd.Intn(256)))
+		target = append(target, byte(rng.Intn(256)))
 	}
 	target = target[:1]
 	//target := []byte("And God said, Let there be light: and there was light.")
@@ -54,19 +54,19 @@ func ProofOfWork(seed int) {
 	for i := 0; i < pop; i++ {
 		weights := make([]Distribution, 0, cols*rows)
 		for i := 0; i < cols*rows; i++ {
-			weights = append(weights, Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()})
+			weights = append(weights, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
 		bias := make([]Distribution, 0, rows)
 		for i := 0; i < rows; i++ {
-			bias = append(bias, Distribution{Mean: factor * rnd.NormFloat64(), StdDev: factor * rnd.NormFloat64()})
+			bias = append(bias, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
 		a := make([]Distribution, 0, n)
 		for i := 0; i < n; i++ {
-			a = append(a, Distribution{Mean: rnd.NormFloat64(), StdDev: rnd.NormFloat64()})
+			a = append(a, Distribution{Mean: rng.NormFloat64(), StdDev: rng.NormFloat64()})
 		}
 		t := make([]Distribution, 0, size)
 		for i := 0; i < size; i++ {
-			t = append(t, Distribution{Mean: rnd.NormFloat64(), StdDev: rnd.NormFloat64()})
+			t = append(t, Distribution{Mean: rng.NormFloat64(), StdDev: rng.NormFloat64()})
 		}
 		g := Genome{
 			A:       a,
@@ -211,7 +211,7 @@ func ProofOfWork(seed int) {
 	done := false
 	d := make(plotter.Values, 0, 8)
 	for i := range pool {
-		dd, avg, stddev, found := sample(rnd, &pool[i])
+		dd, avg, stddev, found := sample(rng, &pool[i])
 		fmt.Println(i, avg, stddev)
 		if found {
 			done = true
@@ -284,27 +284,27 @@ Search:
 				tt := pool[j].T
 				w := pool[j].Weights
 				b := pool[j].Bias
-				g.A[rnd.Intn(len(g.A))].Mean = aa[rnd.Intn(len(aa))].Mean
-				g.A[rnd.Intn(len(g.A))].StdDev = aa[rnd.Intn(len(aa))].StdDev
-				g.T[rnd.Intn(len(g.T))].Mean = tt[rnd.Intn(len(tt))].Mean
-				g.T[rnd.Intn(len(g.T))].StdDev = tt[rnd.Intn(len(tt))].StdDev
-				g.Weights[rnd.Intn(len(g.Weights))].Mean = w[rnd.Intn(len(w))].Mean
-				g.Weights[rnd.Intn(len(g.Weights))].StdDev = w[rnd.Intn(len(w))].StdDev
-				g.Bias[rnd.Intn(len(g.Bias))].Mean = b[rnd.Intn(len(b))].Mean
-				g.Bias[rnd.Intn(len(g.Bias))].StdDev = b[rnd.Intn(len(b))].StdDev
+				g.A[rng.Intn(len(g.A))].Mean = aa[rng.Intn(len(aa))].Mean
+				g.A[rng.Intn(len(g.A))].StdDev = aa[rng.Intn(len(aa))].StdDev
+				g.T[rng.Intn(len(g.T))].Mean = tt[rng.Intn(len(tt))].Mean
+				g.T[rng.Intn(len(g.T))].StdDev = tt[rng.Intn(len(tt))].StdDev
+				g.Weights[rng.Intn(len(g.Weights))].Mean = w[rng.Intn(len(w))].Mean
+				g.Weights[rng.Intn(len(g.Weights))].StdDev = w[rng.Intn(len(w))].StdDev
+				g.Bias[rng.Intn(len(g.Bias))].Mean = b[rng.Intn(len(b))].Mean
+				g.Bias[rng.Intn(len(g.Bias))].StdDev = b[rng.Intn(len(b))].StdDev
 				pool = append(pool, g)
 			}
 		}
 		for i := 0; i < pop; i++ {
 			g := copy(&pool[i])
-			g.A[rnd.Intn(len(g.A))].Mean += rnd.NormFloat64()
-			g.A[rnd.Intn(len(g.A))].StdDev += rnd.NormFloat64()
-			g.T[rnd.Intn(len(g.T))].Mean += rnd.NormFloat64()
-			g.T[rnd.Intn(len(g.T))].StdDev += rnd.NormFloat64()
-			g.Weights[rnd.Intn(len(g.Weights))].Mean += rnd.NormFloat64()
-			g.Weights[rnd.Intn(len(g.Weights))].StdDev += rnd.NormFloat64()
-			g.Bias[rnd.Intn(len(g.Bias))].Mean += rnd.NormFloat64()
-			g.Bias[rnd.Intn(len(g.Bias))].StdDev += rnd.NormFloat64()
+			g.A[rng.Intn(len(g.A))].Mean += rng.NormFloat64()
+			g.A[rng.Intn(len(g.A))].StdDev += rng.NormFloat64()
+			g.T[rng.Intn(len(g.T))].Mean += rng.NormFloat64()
+			g.T[rng.Intn(len(g.T))].StdDev += rng.NormFloat64()
+			g.Weights[rng.Intn(len(g.Weights))].Mean += rng.NormFloat64()
+			g.Weights[rng.Intn(len(g.Weights))].StdDev += rng.NormFloat64()
+			g.Bias[rng.Intn(len(g.Bias))].Mean += rng.NormFloat64()
+			g.Bias[rng.Intn(len(g.Bias))].StdDev += rng.NormFloat64()
 			pool = append(pool, g)
 		}
 		done := make(chan *rand.Rand, 8)
