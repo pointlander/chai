@@ -28,7 +28,7 @@ func ProofOfWork(seed int) {
 	}
 	const pop = 256
 	const cols, rows = 256, 256
-	const work = 24
+	const work = 27 // 24
 
 	type Genome struct {
 		A       []Distribution
@@ -45,6 +45,7 @@ func ProofOfWork(seed int) {
 	for i := 0; i < 1024; i++ {
 		target = append(target, byte(rnd.Intn(256)))
 	}
+	target = target[:1]
 	//target := []byte("And God said, Let there be light: and there was light.")
 	size := len(target) * 8
 	n := 32
