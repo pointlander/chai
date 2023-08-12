@@ -111,28 +111,28 @@ func ProofOfWork(seed int) {
 			}
 		}
 		cost, total := 0.0, 0.0
-		for i := 0; i < 32; i++ {
-			targetCost := 0
-			sampledT := make([]byte, 0, size)
-			var buffer byte
-			for i, v := range g.T {
-				buffer <<= 1
-				if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
-					buffer |= 1
-				}
-				if i%8 == 7 {
-					sampledT = append(sampledT, buffer)
-					for j := 0; j < 8; j++ {
-						if (target[i/8]>>uint(j))&1 != (buffer>>uint(j))&1 {
-							targetCost++
-						}
-					}
-					buffer = 0
-				}
-			}
-
-			var state uint32
+		var state uint32
+		for i := 0; i < 128; i++ {
 			for _, v := range g.A {
+				targetCost := 0
+				sampledT := make([]byte, 0, size)
+				var buffer byte
+				for i, v := range g.T {
+					buffer <<= 1
+					if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
+						buffer |= 1
+					}
+					if i%8 == 7 {
+						sampledT = append(sampledT, buffer)
+						for j := 0; j < 8; j++ {
+							if (target[i/8]>>uint(j))&1 != (buffer>>uint(j))&1 {
+								targetCost++
+							}
+						}
+						buffer = 0
+					}
+				}
+
 				if (rng.NormFloat64()+v.Mean)*v.StdDev > 0 {
 					inputs.Data[0] = 1
 				} else {
