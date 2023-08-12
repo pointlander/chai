@@ -28,7 +28,7 @@ func ProofOfWork(seed int) {
 	}
 	const pop = 256
 	const cols, rows = 256, 256
-	const work = 27 // 24
+	const work = 26
 
 	type Genome struct {
 		A       []Distribution
@@ -237,11 +237,7 @@ func ProofOfWork(seed int) {
 		panic(err)
 	}
 
-	rngs := make([]*rand.Rand, cpus)
-	for i := range rngs {
-		rngs[i] = rand.New(rand.NewSource(int64(i + 1)))
-	}
-
+	rngs, generation := make(map[int]*rand.Rand), 0
 Search:
 	for !done {
 		graph := pagerank.NewGraph64()
@@ -270,7 +266,7 @@ Search:
 			return pool[i].Rank > pool[j].Rank
 		})
 		pool = pool[:pop]
-		fmt.Println(pool[0].Fitness, pool[0].StdDev)
+		fmt.Println(generation, pool[0].Fitness, pool[0].StdDev)
 		if pool[0].Fitness < 1e-32 {
 			break Search
 		}
@@ -307,24 +303,29 @@ Search:
 			g.Bias[rng.Intn(len(g.Bias))].StdDev += rng.NormFloat64()
 			pool = append(pool, g)
 		}
-		done := make(chan *rand.Rand, 8)
+		done := make(chan bool, 8)
 		i, flight := 0, 0
 		task := func(rng *rand.Rand, i int) {
 			_, avg, stddev, found := sample(rng, &pool[i])
 			if found {
-				done <- nil
+				done <- true
 			}
 			pool[i].Fitness = avg
 			pool[i].StdDev = stddev
 			pool[i].Cached = true
-			done <- rng
+			done <- false
 		}
 		for i < len(pool) && flight < cpus {
 			if pool[i].Cached {
 				i++
 				continue
 			}
-			go task(rngs[flight], i)
+			r := rngs[i]
+			if r == nil {
+				r = rand.New(rand.NewSource(rng.Int63()))
+				rngs[i] = r
+			}
+			go task(r, i)
 			i++
 			flight++
 		}
@@ -334,13 +335,17 @@ Search:
 				continue
 			}
 
-			rng := <-done
-			if rng == nil {
+			if <-done {
 				break Search
 			}
 			flight--
 
-			go task(rng, i)
+			r := rngs[i]
+			if r == nil {
+				r = rand.New(rand.NewSource(rng.Int63()))
+				rngs[i] = r
+			}
+			go task(r, i)
 			i++
 			flight++
 		}
@@ -348,5 +353,6 @@ Search:
 			<-done
 			flight--
 		}
+		generation++
 	}
 }
