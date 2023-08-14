@@ -18,8 +18,8 @@ import (
 	"gonum.org/v1/plot/vg"
 )
 
-// ComplexProofOfWork implements a complex recurrent neural network for computing a proof of work
-func ComplexProofOfWork(seed int) {
+// QRNN implements a complex recurrent neural network for computing a true random string
+func QRNN(seed int) {
 	cpus := runtime.NumCPU()
 	rng := rand.New(rand.NewSource(int64(seed)))
 	type Distribution struct {
@@ -243,7 +243,7 @@ func ComplexProofOfWork(seed int) {
 	}
 	p.Add(histogram)
 
-	err = p.Save(8*vg.Inch, 8*vg.Inch, "quantum_proof_of_work.png")
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "qrnn.png")
 	if err != nil {
 		panic(err)
 	}
