@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"sort"
 
-	"github.com/pointlander/pagerank"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -27,8 +26,8 @@ func ComplexProofOfWork(seed int) {
 		StdDev float64
 	}
 	const pop = 256
-	const cols, rows = 256, 256
-	const work = 26
+	const cols, rows = 32, 32
+	const work = 32
 
 	type Genome struct {
 		A       []Distribution
@@ -116,7 +115,7 @@ func ComplexProofOfWork(seed int) {
 			}
 		}
 		cost, total := 0.0, 0.0
-		var state uint32
+		var stateA, stateB uint32
 		for i := 0; i < 128; i++ {
 			for _, v := range g.A {
 				targetCost := 0
@@ -144,16 +143,17 @@ func ComplexProofOfWork(seed int) {
 					inputs.Data[0] = -1
 				}
 				outputs := ComplexAdd(ComplexMul(layer, inputs), b)
-				state <<= 1
+
+				stateA <<= 1
 				if real(outputs.Data[0]) > 0 {
-					state |= 1
+					stateA |= 1
 				}
 				input := make([]byte, 0, size)
-				input = append(input, byte(state&0xff), byte((state>>8)&0xff), byte((state>>16)&0xff), byte((state>>24)&0xff))
+				input = append(input, byte(stateA&0xff), byte((stateA>>8)&0xff), byte((stateA>>16)&0xff), byte((stateA>>24)&0xff))
 				input = append(input, sampledT...)
-				output := sha256.Sum256(input)
+				outputA := sha256.Sum256(input)
 				iCost := 0
-			Count:
+				/*Count:
 				for _, v := range output {
 					for j := 0; j < 8; j++ {
 						if 0x80&(v<<uint(j)) == 0 {
@@ -167,20 +167,75 @@ func ComplexProofOfWork(seed int) {
 				iCost += targetCost
 				c := float64(iCost)
 				cost += c
+				stddev += c * c*/
+
+				stateB <<= 1
+				if imag(outputs.Data[0]) > 0 {
+					stateB |= 1
+				}
+				input = make([]byte, 0, size)
+				input = append(input, byte(stateB&0xff), byte((stateB>>8)&0xff), byte((stateB>>16)&0xff), byte((stateB>>24)&0xff))
+				input = append(input, sampledT...)
+				outputB := sha256.Sum256(input)
+			Count:
+				for _, v := range outputA {
+					for j := 0; j < 8; j++ {
+						if 0x80&(v<<uint(j)) == 0 {
+							iCost++
+						} else {
+							break Count
+						}
+					}
+				}
+			CountB:
+				for _, v := range outputB {
+					for j := 0; j < 8; j++ {
+						if 0x80&(v<<uint(j)) == 0 {
+							iCost++
+						} else {
+							break CountB
+						}
+					}
+				}
+				iCost = 512 - iCost
+				iCost += targetCost
+				c := float64(iCost)
+				cost += c
 				stddev += c * c
 
 				realTarget := make([]byte, 0, size)
-				realTarget = append(realTarget, byte(state&0xff), byte((state>>8)&0xff), byte((state>>16)&0xff), byte((state>>24)&0xff))
+				realTarget = append(realTarget, byte(stateA&0xff), byte((stateA>>8)&0xff), byte((stateA>>16)&0xff), byte((stateA>>24)&0xff))
 				realTarget = append(realTarget, target...)
-				output = sha256.Sum256(realTarget)
+				outputA = sha256.Sum256(realTarget)
 				iCost = 0
 			Count2:
-				for _, v := range output {
+				for _, v := range outputA {
 					for j := 0; j < 8; j++ {
 						if 0x80&(v<<uint(j)) == 0 {
 							iCost++
 						} else {
 							break Count2
+						}
+					}
+				}
+				if iCost >= work {
+					found = true
+					fmt.Println("found", iCost)
+					break
+				}
+
+				realTarget = make([]byte, 0, size)
+				realTarget = append(realTarget, byte(stateB&0xff), byte((stateB>>8)&0xff), byte((stateB>>16)&0xff), byte((stateB>>24)&0xff))
+				realTarget = append(realTarget, target...)
+				outputB = sha256.Sum256(realTarget)
+				iCost = 0
+			Count2B:
+				for _, v := range outputB {
+					for j := 0; j < 8; j++ {
+						if 0x80&(v<<uint(j)) == 0 {
+							iCost++
+						} else {
+							break Count2B
 						}
 					}
 				}
@@ -251,7 +306,7 @@ func ComplexProofOfWork(seed int) {
 	rngs, generation := make(map[int]*rand.Rand), 0
 Search:
 	for !done {
-		graph := pagerank.NewGraph64()
+		/*graph := pagerank.NewGraph64()
 		for i := range pool {
 			for j := i + 1; j < len(pool); j++ {
 				// http://homework.uoregon.edu/pub/class/es202/ztest.html
@@ -271,10 +326,10 @@ Search:
 		}
 		graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
 			pool[node].Rank = rank
-		})
+		})*/
 		sort.Slice(pool, func(i, j int) bool {
-			//return pool[i].Fitness < pool[j].Fitness
-			return pool[i].Rank > pool[j].Rank
+			return pool[i].Fitness < pool[j].Fitness
+			//return pool[i].Rank > pool[j].Rank
 		})
 		pool = pool[:pop]
 		fmt.Println(generation, pool[0].Fitness, pool[0].StdDev)
