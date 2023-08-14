@@ -21,6 +21,10 @@ import (
 )
 
 var (
+	// FlagPOW is the proof of work mode
+	FlagPOW = flag.Bool("pow", false, "proof of work mode")
+	// FlagCPOW is the complex proof of work mode
+	FlagCPOW = flag.Bool("cpow", false, "complex proof of work mode")
 	// FlagBig genetic mode
 	FlagBig = flag.Bool("big", false, "big genetic mode")
 	// FlagGenetic genetic mode
@@ -57,6 +61,16 @@ func DNorm(x, mean, std float64) float64 {
 
 func main() {
 	flag.Parse()
+
+	if *FlagCPOW {
+		ComplexProofOfWork(1)
+		return
+	}
+
+	if *FlagPOW {
+		ProofOfWork(1)
+		return
+	}
 
 	if *FlagRNN {
 		RNN(1)
@@ -165,9 +179,6 @@ func main() {
 		composite.Mul(bigPrimes[0], bigPrimes[1])
 		fmt.Println(composite.String())
 	}
-
-	//ProofOfWork(1)
-	ComplexProofOfWork(1)
 
 	number := big.NewInt(1)
 	number = number.Lsh(number, 16)
