@@ -180,6 +180,8 @@ func main() {
 		fmt.Println(composite.String())
 	}
 
+	QRNN(1)
+
 	number := big.NewInt(1)
 	number = number.Lsh(number, 16)
 	number = number.Sub(number, one)
