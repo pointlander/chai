@@ -52,12 +52,12 @@ func ComplexProofOfWork(seed int) {
 
 	factor := math.Sqrt(2.0 / float64(cols))
 	for i := 0; i < pop; i++ {
-		weights := make([]Distribution, 0, cols*rows)
-		for i := 0; i < cols*rows; i++ {
+		weights := make([]Distribution, 0, 2*cols*rows)
+		for i := 0; i < 2*cols*rows; i++ {
 			weights = append(weights, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		bias := make([]Distribution, 0, rows)
-		for i := 0; i < rows; i++ {
+		bias := make([]Distribution, 0, 2*rows)
+		for i := 0; i < 2*rows; i++ {
 			bias = append(bias, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
 		a := make([]Distribution, 0, n)
@@ -95,15 +95,19 @@ func ComplexProofOfWork(seed int) {
 	}
 
 	sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev float64, found bool) {
-		layer := NewMatrix(0, cols, rows)
-		for _, w := range g.Weights {
-			layer.Data = append(layer.Data, (rng.NormFloat64()+w.Mean)*w.StdDev)
+		layer := NewComplexMatrix(0, cols, rows)
+		for i := 0; i < len(g.Weights); i += 2 {
+			a := g.Weights[i]
+			b := g.Weights[i+1]
+			layer.Data = append(layer.Data, complex((rng.NormFloat64()+a.Mean)*a.StdDev, (rng.NormFloat64()+b.Mean)*b.StdDev))
 		}
-		b := NewMatrix(0, 1, rows)
-		for _, w := range g.Bias {
-			b.Data = append(b.Data, (rng.NormFloat64()+w.Mean)*w.StdDev)
+		b := NewComplexMatrix(0, 1, rows)
+		for i := 0; i < len(g.Bias); i += 2 {
+			x := g.Bias[i]
+			y := g.Bias[i+1]
+			b.Data = append(b.Data, complex((rng.NormFloat64()+x.Mean)*x.StdDev, (rng.NormFloat64()+y.Mean)*y.StdDev))
 		}
-		inputs := NewMatrix(0, cols, 1)
+		inputs := NewComplexMatrix(0, cols, 1)
 		for i := 0; i < cols; i++ {
 			if rng.Intn(2) == 0 {
 				inputs.Data = append(inputs.Data, 1)
@@ -139,9 +143,9 @@ func ComplexProofOfWork(seed int) {
 				} else {
 					inputs.Data[0] = -1
 				}
-				outputs := Add(Mul(layer, inputs), b)
+				outputs := ComplexAdd(ComplexMul(layer, inputs), b)
 				state <<= 1
-				if outputs.Data[0] > 0 {
+				if real(outputs.Data[0]) > 0 {
 					state |= 1
 				}
 				input := make([]byte, 0, size)
@@ -165,10 +169,10 @@ func ComplexProofOfWork(seed int) {
 				cost += c
 				stddev += c * c
 
-				real := make([]byte, 0, size)
-				real = append(real, byte(state&0xff), byte((state>>8)&0xff), byte((state>>16)&0xff), byte((state>>24)&0xff))
-				real = append(real, target...)
-				output = sha256.Sum256(real)
+				realTarget := make([]byte, 0, size)
+				realTarget = append(realTarget, byte(state&0xff), byte((state>>8)&0xff), byte((state>>16)&0xff), byte((state>>24)&0xff))
+				realTarget = append(realTarget, target...)
+				output = sha256.Sum256(realTarget)
 				iCost = 0
 			Count2:
 				for _, v := range output {
@@ -187,11 +191,18 @@ func ComplexProofOfWork(seed int) {
 				}
 
 				for j := range outputs.Data {
-					if outputs.Data[j] > 0 {
-						outputs.Data[j] = 1
+					var v complex128
+					if real(outputs.Data[j]) > 0 {
+						v = 1
 					} else {
-						outputs.Data[j] = -1
+						v = -1
 					}
+					if imag(outputs.Data[j]) > 0 {
+						v += 1i
+					} else {
+						v += -1i
+					}
+					outputs.Data[j] = v
 				}
 				samples = append(samples, float64(iCost))
 				inputs = outputs

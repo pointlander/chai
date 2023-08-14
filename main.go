@@ -166,7 +166,8 @@ func main() {
 		fmt.Println(composite.String())
 	}
 
-	ProofOfWork(1)
+	//ProofOfWork(1)
+	ComplexProofOfWork(1)
 
 	number := big.NewInt(1)
 	number = number.Lsh(number, 16)
