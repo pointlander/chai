@@ -111,9 +111,9 @@ func QRNN(seed int) {
 					}
 					outputs.Data[j] = v
 				}
-				samples = append(samples, float64(correct))
 				inputs = outputs
 			}
+			samples = append(samples, float64(correct))
 			c := float64(len(target) - correct)
 			avg += c
 			stddev += c * c
