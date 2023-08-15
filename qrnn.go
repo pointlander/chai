@@ -25,7 +25,7 @@ func QRNN(seed int) {
 		StdDev float64
 	}
 	const pop = 256
-	const cols, rows = 32, 32
+	const cols, rows = 2, 2
 
 	type Genome struct {
 		Weights []Distribution
@@ -39,6 +39,8 @@ func QRNN(seed int) {
 	target := make([]bool, 0, 32)
 	target = append(target, false, true, true, true, true, true, true, false)
 	target = append(target, true, false, true, false, true, false, false, false)
+	target = append(target, true, false, false, false, true, true, false, false)
+	target = append(target, false, true, true, true, false, true, false, false)
 
 	factor := math.Sqrt(2.0 / float64(cols))
 	for i := 0; i < pop; i++ {
@@ -117,6 +119,12 @@ func QRNN(seed int) {
 			c := float64(len(target) - correct)
 			avg += c
 			stddev += c * c
+			if correct == len(target) {
+				fmt.Println(i, correct)
+				found = true
+				scale = i + 1
+				break
+			}
 		}
 
 		avg /= float64(scale)
