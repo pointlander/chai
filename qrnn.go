@@ -25,7 +25,7 @@ func QRNN(seed int) {
 		StdDev float64
 	}
 	const pop = 256
-	const cols, rows = 2, 2
+	const cols, rows = 8, 8
 
 	type Genome struct {
 		Weights []Distribution
@@ -94,8 +94,8 @@ func QRNN(seed int) {
 				outputs := ComplexAdd(ComplexMul(layer, inputs), b)
 				if v && (real(outputs.Data[0]) > 0 && imag(outputs.Data[0]) > 0) ||
 					v && (real(outputs.Data[0]) < 0 && imag(outputs.Data[0]) < 0) ||
-					!v && (real(outputs.Data[0]) > 0 || imag(outputs.Data[0]) < 0) ||
-					!v && (real(outputs.Data[0]) < 0 || imag(outputs.Data[0]) > 0) {
+					!v && (real(outputs.Data[0]) > 0 && imag(outputs.Data[0]) < 0) ||
+					!v && (real(outputs.Data[0]) < 0 && imag(outputs.Data[0]) > 0) {
 					correct++
 				}
 
