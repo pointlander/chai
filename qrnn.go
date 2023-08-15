@@ -38,6 +38,7 @@ func QRNN(seed int) {
 	pool := make([]Genome, 0, pop)
 	target := make([]bool, 0, 32)
 	target = append(target, false, true, true, true, true, true, true, false)
+	target = append(target, true, false, true, false, true, false, false, false)
 
 	factor := math.Sqrt(2.0 / float64(cols))
 	for i := 0; i < pop; i++ {
