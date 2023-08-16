@@ -30,8 +30,7 @@ func QRNN(seed int) {
 	type Genome struct {
 		Weights []Distribution
 		Bias    []Distribution
-		Fitness float64
-		StdDev  float64
+		Fitness Stat
 		Rank    float64
 		Cached  bool
 	}
@@ -70,7 +69,8 @@ func QRNN(seed int) {
 		}
 	}
 
-	sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, avg, stddev float64, found bool) {
+	sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, stats []Stat, found bool) {
+		stats = make([]Stat, 1)
 		scale := 128
 		for i := 0; i < scale; i++ {
 			layer := NewComplexMatrix(0, cols, rows)
@@ -116,9 +116,7 @@ func QRNN(seed int) {
 				inputs = outputs
 			}
 			samples = append(samples, float64(correct))
-			c := float64(len(target) - correct)
-			avg += c
-			stddev += c * c
+			stats[0].Add(float64(len(target) - correct))
 			if correct == len(target) {
 				fmt.Println(i, correct)
 				found = true
@@ -127,24 +125,19 @@ func QRNN(seed int) {
 			}
 		}
 
-		avg /= float64(scale)
-		stddev /= float64(scale)
-		squared := avg * avg
-		stddev -= squared
-		stddev = math.Sqrt(stddev)
-		return samples, avg, stddev, found
+		stats[0].Normalize()
+		return samples, stats, found
 	}
 	done := false
 	d := make(plotter.Values, 0, 8)
 	for i := range pool {
-		dd, avg, stddev, found := sample(rng, &pool[i])
-		fmt.Println(i, avg, stddev)
+		dd, stats, found := sample(rng, &pool[i])
+		fmt.Println(i, stats[0].Mean, stats[0].StdDev)
 		if found {
 			done = true
 			break
 		}
-		pool[i].Fitness = avg
-		pool[i].StdDev = stddev
+		pool[i].Fitness = stats[0]
 		pool[i].Cached = true
 		d = append(d, dd...)
 	}
@@ -170,14 +163,14 @@ Search:
 		for i := range pool {
 			for j := i + 1; j < len(pool); j++ {
 				// http://homework.uoregon.edu/pub/class/es202/ztest.html
-				avga := pool[i].Fitness
-				avgb := pool[j].Fitness
+				avga := pool[i].Fitness.Mean
+				avgb := pool[j].Fitness.Mean
 				avg := avga - avgb
 				if avg < 0 {
 					avg = -avg
 				}
-				stddeva := pool[i].StdDev
-				stddevb := pool[j].StdDev
+				stddeva := pool[i].Fitness.StdDev
+				stddevb := pool[j].Fitness.StdDev
 				stddev := math.Sqrt(stddeva*stddeva + stddevb*stddevb)
 				z := stddev / avg
 				graph.Link(uint64(i), uint64(j), z)
@@ -188,12 +181,12 @@ Search:
 			pool[node].Rank = rank
 		})*/
 		sort.Slice(pool, func(i, j int) bool {
-			return pool[i].Fitness < pool[j].Fitness
+			return pool[i].Fitness.Mean < pool[j].Fitness.Mean
 			//return pool[i].Rank > pool[j].Rank
 		})
 		pool = pool[:pop]
-		fmt.Println(generation, pool[0].Fitness, pool[0].StdDev)
-		if pool[0].Fitness < 1e-32 {
+		fmt.Println(generation, pool[0].Fitness.Mean, pool[0].Fitness.StdDev)
+		if pool[0].Fitness.Mean < 1e-32 {
 			break Search
 		}
 		for i := 0; i < pop/4; i++ {
@@ -222,12 +215,11 @@ Search:
 		done := make(chan bool, 8)
 		i, flight := 0, 0
 		task := func(rng *rand.Rand, i int) {
-			_, avg, stddev, found := sample(rng, &pool[i])
+			_, stats, found := sample(rng, &pool[i])
 			if found {
 				done <- true
 			}
-			pool[i].Fitness = avg
-			pool[i].StdDev = stddev
+			pool[i].Fitness = stats[0]
 			pool[i].Cached = true
 			done <- false
 		}

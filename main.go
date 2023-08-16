@@ -61,6 +61,26 @@ func DNorm(x, mean, std float64) float64 {
 	return -x * math.Exp(-(x*x)/(2*std*std)) / (std * std * std * math.Sqrt(2*math.Pi))
 }
 
+// Stat is a statistic
+type Stat struct {
+	Mean   float64
+	StdDev float64
+	Count  float64
+}
+
+// Add adds a value to the statistic
+func (s *Stat) Add(x float64) {
+	s.Mean += x
+	s.StdDev += x * x
+	s.Count++
+}
+
+// Normalize normalizes the statistic
+func (s *Stat) Normalize() {
+	s.Mean /= s.Count
+	s.StdDev = math.Sqrt(s.StdDev/s.Count - s.Mean*s.Mean)
+}
+
 func main() {
 	flag.Parse()
 
