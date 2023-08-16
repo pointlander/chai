@@ -92,10 +92,10 @@ func QRNN(seed int) {
 			correct := 0
 			for _, v := range target {
 				outputs := ComplexAdd(ComplexMul(layer, inputs), b)
-				if v && (real(outputs.Data[0]) > 0 && imag(outputs.Data[0]) > 0) ||
-					v && (real(outputs.Data[0]) < 0 && imag(outputs.Data[0]) < 0) ||
-					!v && (real(outputs.Data[0]) > 0 && imag(outputs.Data[0]) < 0) ||
-					!v && (real(outputs.Data[0]) < 0 && imag(outputs.Data[0]) > 0) {
+				if (v && real(outputs.Data[0]) > 0 && imag(outputs.Data[0]) > 0) ||
+					(v && real(outputs.Data[0]) < 0 && imag(outputs.Data[0]) < 0) ||
+					(!v && real(outputs.Data[0]) > 0 && imag(outputs.Data[0]) < 0) ||
+					(!v && real(outputs.Data[0]) < 0 && imag(outputs.Data[0]) > 0) {
 					correct++
 				}
 

@@ -21,6 +21,8 @@ import (
 )
 
 var (
+	// FlagQRNN is a quantum RNN
+	FlagQRNN = flag.Bool("qrnn", false, "quantum RNN")
 	// FlagPOW is the proof of work mode
 	FlagPOW = flag.Bool("pow", false, "proof of work mode")
 	// FlagCPOW is the complex proof of work mode
@@ -61,6 +63,11 @@ func DNorm(x, mean, std float64) float64 {
 
 func main() {
 	flag.Parse()
+
+	if *FlagQRNN {
+		QRNN(1)
+		return
+	}
 
 	if *FlagCPOW {
 		ComplexProofOfWork(1)
@@ -179,8 +186,6 @@ func main() {
 		composite.Mul(bigPrimes[0], bigPrimes[1])
 		fmt.Println(composite.String())
 	}
-
-	QRNN(1)
 
 	number := big.NewInt(1)
 	number = number.Lsh(number, 16)
