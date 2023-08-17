@@ -70,7 +70,7 @@ func QRNN(seed int) {
 	}
 
 	sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, stats []Stat, found bool) {
-		stats = make([]Stat, 1)
+		stats = make([]Stat, 5)
 		scale := 128
 		for i := 0; i < scale; i++ {
 			layer := NewComplexMatrix(0, cols, rows)
@@ -90,7 +90,7 @@ func QRNN(seed int) {
 				inputs.Data = append(inputs.Data, 0)
 			}
 			correct := 0
-			for _, v := range target {
+			for k, v := range target {
 				outputs := ComplexAdd(ComplexMul(layer, inputs), b)
 				if (v && real(outputs.Data[0]) > 0 && imag(outputs.Data[0]) > 0) ||
 					(v && real(outputs.Data[0]) < 0 && imag(outputs.Data[0]) < 0) ||
@@ -98,7 +98,10 @@ func QRNN(seed int) {
 					(!v && real(outputs.Data[0]) < 0 && imag(outputs.Data[0]) > 0) {
 					correct++
 				}
-
+				if k == 1 {
+					stats[1].Add(real(outputs.Data[0]))
+					stats[2].Add(imag(outputs.Data[0]))
+				}
 				for j := range outputs.Data {
 					var v complex128
 					if real(outputs.Data[j]) > 0 {
@@ -113,6 +116,10 @@ func QRNN(seed int) {
 					}
 					outputs.Data[j] = v
 				}
+				if k == 1 {
+					stats[3].Add(real(outputs.Data[0]))
+					stats[4].Add(imag(outputs.Data[0]))
+				}
 				inputs = outputs
 			}
 			samples = append(samples, float64(correct))
@@ -120,12 +127,13 @@ func QRNN(seed int) {
 			if correct == len(target) {
 				fmt.Println(i, correct)
 				found = true
-				scale = i + 1
 				break
 			}
 		}
 
-		stats[0].Normalize()
+		for i := range stats {
+			stats[i].Normalize()
+		}
 		return samples, stats, found
 	}
 	done := false
@@ -133,6 +141,7 @@ func QRNN(seed int) {
 	for i := range pool {
 		dd, stats, found := sample(rng, &pool[i])
 		fmt.Println(i, stats[0].Mean, stats[0].StdDev)
+		fmt.Println(stats)
 		if found {
 			done = true
 			break
