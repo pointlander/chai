@@ -77,13 +77,37 @@ func QRNN(seed int) {
 			for i := 0; i < len(g.Weights); i += 2 {
 				a := g.Weights[i]
 				b := g.Weights[i+1]
-				layer.Data = append(layer.Data, complex((rng.NormFloat64()+a.Mean)*a.StdDev, (rng.NormFloat64()+b.Mean)*b.StdDev))
+				//layer.Data = append(layer.Data, complex((rng.NormFloat64()+a.Mean)*a.StdDev, (rng.NormFloat64()+b.Mean)*b.StdDev))
+				var v complex128
+				if rng.NormFloat64() > a.Mean {
+					v = 1
+				} else {
+					v = -1
+				}
+				if rng.NormFloat64() > b.Mean {
+					v += 1i
+				} else {
+					v += -1i
+				}
+				layer.Data = append(layer.Data, v)
 			}
 			b := NewComplexMatrix(0, 1, rows)
 			for i := 0; i < len(g.Bias); i += 2 {
 				x := g.Bias[i]
 				y := g.Bias[i+1]
-				b.Data = append(b.Data, complex((rng.NormFloat64()+x.Mean)*x.StdDev, (rng.NormFloat64()+y.Mean)*y.StdDev))
+				//b.Data = append(b.Data, complex((rng.NormFloat64()+x.Mean)*x.StdDev, (rng.NormFloat64()+y.Mean)*y.StdDev))
+				var v complex128
+				if rng.NormFloat64() > x.Mean {
+					v = 1
+				} else {
+					v = -1
+				}
+				if rng.NormFloat64() > y.Mean {
+					v += 1i
+				} else {
+					v += -1i
+				}
+				b.Data = append(b.Data, v)
 			}
 			inputs := NewComplexMatrix(0, cols, 1)
 			for i := 0; i < cols; i++ {
