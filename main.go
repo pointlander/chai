@@ -159,6 +159,8 @@ func main() {
 		return
 	}
 
+	IRIS(1)
+
 	rnd := rand.New(rand.NewSource(1))
 	samples := make(plotter.Values, 0, 8)
 	for i := 0; i < 1000; i++ {

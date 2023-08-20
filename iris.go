@@ -26,65 +26,81 @@ func IRIS(seed int) {
 	if err != nil {
 		panic(err)
 	}
-	_ = datum
+	target := make([][]float64, 3)
+	target[0] = datum.Fisher[0].Measures
+	target[1] = datum.Fisher[50].Measures
+	target[2] = datum.Fisher[100].Measures
 
 	type Distribution struct {
 		Mean   float64
 		StdDev float64
 	}
 	const pop = 256
-	const cols, rows = 8, 8
+	const cols, rows = 4, 4
 
 	type Genome struct {
-		Weights []Distribution
-		Bias    []Distribution
+		W1      []Distribution
+		B1      []Distribution
+		W2      []Distribution
+		B2      []Distribution
 		Fitness Stat
 		Rank    float64
 		Cached  bool
 	}
 	pool := make([]Genome, 0, pop)
-	target := make([]bool, 0, 32)
-	target = append(target, false, true, true, true, true, true, true, false)
-	target = append(target, true, false, true, false, true, false, false, false)
-	target = append(target, true, false, false, false, true, true, false, false)
-	//target = append(target, false, true, true, true, false, true, false, false)
 
 	factor := math.Sqrt(2.0 / float64(cols))
 	for i := 0; i < pop; i++ {
-		weights := make([]Distribution, 0, 2*cols*rows)
+		w1 := make([]Distribution, 0, 2*cols*rows)
 		for i := 0; i < 2*cols*rows; i++ {
-			weights = append(weights, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+			w1 = append(w1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		bias := make([]Distribution, 0, 2*rows)
+		b1 := make([]Distribution, 0, 2*rows)
 		for i := 0; i < 2*rows; i++ {
-			bias = append(bias, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+			b1 = append(b1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+		}
+		w2 := make([]Distribution, 0, 2*cols*3)
+		for i := 0; i < 2*cols*rows; i++ {
+			w2 = append(w2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+		}
+		b2 := make([]Distribution, 0, 2*3)
+		for i := 0; i < 2*rows; i++ {
+			b2 = append(b2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
 		g := Genome{
-			Weights: weights,
-			Bias:    bias,
+			W1: w1,
+			B1: b1,
+			W2: w2,
+			B2: b2,
 		}
 		pool = append(pool, g)
 	}
 
 	copy := func(g *Genome) Genome {
-		weights := make([]Distribution, len(g.Weights))
-		copy(weights, g.Weights)
-		bias := make([]Distribution, len(g.Bias))
-		copy(bias, g.Bias)
+		w1 := make([]Distribution, len(g.W1))
+		copy(w1, g.W1)
+		b1 := make([]Distribution, len(g.B1))
+		copy(b1, g.B1)
+		w2 := make([]Distribution, len(g.W1))
+		copy(w2, g.W2)
+		b2 := make([]Distribution, len(g.B2))
+		copy(b1, g.B1)
 		return Genome{
-			Weights: weights,
-			Bias:    bias,
+			W1: w1,
+			B1: b1,
+			W2: w2,
+			B2: b2,
 		}
 	}
 
 	sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, stats []Stat, found bool) {
-		stats = make([]Stat, 5)
+		stats = make([]Stat, 1)
 		scale := 128
 		for i := 0; i < scale; i++ {
-			layer := NewComplexMatrix(0, cols, rows)
-			for i := 0; i < len(g.Weights); i += 2 {
-				a := g.Weights[i]
-				b := g.Weights[i+1]
+			w1 := NewComplexMatrix(0, cols, rows)
+			for i := 0; i < len(g.W1); i += 2 {
+				a := g.W1[i]
+				b := g.W1[i+1]
 				//layer.Data = append(layer.Data, complex((rng.NormFloat64()+a.Mean)*a.StdDev, (rng.NormFloat64()+b.Mean)*b.StdDev))
 				var v complex128
 				if rng.NormFloat64() > a.Mean {
@@ -97,12 +113,12 @@ func IRIS(seed int) {
 				} else {
 					v += -1i
 				}
-				layer.Data = append(layer.Data, v)
+				w1.Data = append(w1.Data, v)
 			}
-			b := NewComplexMatrix(0, 1, rows)
-			for i := 0; i < len(g.Bias); i += 2 {
-				x := g.Bias[i]
-				y := g.Bias[i+1]
+			b1 := NewComplexMatrix(0, 1, rows)
+			for i := 0; i < len(g.B1); i += 2 {
+				x := g.B1[i]
+				y := g.B1[i+1]
 				//b.Data = append(b.Data, complex((rng.NormFloat64()+x.Mean)*x.StdDev, (rng.NormFloat64()+y.Mean)*y.StdDev))
 				var v complex128
 				if rng.NormFloat64() > x.Mean {
@@ -115,48 +131,82 @@ func IRIS(seed int) {
 				} else {
 					v += -1i
 				}
-				b.Data = append(b.Data, v)
+				b1.Data = append(b1.Data, v)
+			}
+			w2 := NewComplexMatrix(0, cols, 3)
+			for i := 0; i < len(g.W1); i += 2 {
+				a := g.W2[i]
+				b := g.W2[i+1]
+				//layer.Data = append(layer.Data, complex((rng.NormFloat64()+a.Mean)*a.StdDev, (rng.NormFloat64()+b.Mean)*b.StdDev))
+				var v complex128
+				if rng.NormFloat64() > a.Mean {
+					v = 1
+				} else {
+					v = -1
+				}
+				if rng.NormFloat64() > b.Mean {
+					v += 1i
+				} else {
+					v += -1i
+				}
+				w2.Data = append(w2.Data, v)
+			}
+			b2 := NewComplexMatrix(0, 1, 3)
+			for i := 0; i < len(g.B1); i += 2 {
+				x := g.B1[i]
+				y := g.B1[i+1]
+				//b.Data = append(b.Data, complex((rng.NormFloat64()+x.Mean)*x.StdDev, (rng.NormFloat64()+y.Mean)*y.StdDev))
+				var v complex128
+				if rng.NormFloat64() > x.Mean {
+					v = 1
+				} else {
+					v = -1
+				}
+				if rng.NormFloat64() > y.Mean {
+					v += 1i
+				} else {
+					v += -1i
+				}
+				b2.Data = append(b2.Data, v)
 			}
 			inputs := NewComplexMatrix(0, cols, 1)
 			for i := 0; i < cols; i++ {
 				inputs.Data = append(inputs.Data, 0)
 			}
-			correct := 0
+			correct, incorrect := 0, 0
 			for k, v := range target {
-				outputs := ComplexAdd(ComplexMul(layer, inputs), b)
-				if (v && real(outputs.Data[0]) > 0 && imag(outputs.Data[0]) > 0) ||
-					(v && real(outputs.Data[0]) < 0 && imag(outputs.Data[0]) < 0) ||
-					(!v && real(outputs.Data[0]) > 0 && imag(outputs.Data[0]) < 0) ||
-					(!v && real(outputs.Data[0]) < 0 && imag(outputs.Data[0]) > 0) {
-					correct++
+				for j := range inputs.Data {
+					inputs.Data[j] = complex(v[j], 0)
 				}
-				if k == 1 {
-					stats[1].Add(real(outputs.Data[0]))
-					stats[2].Add(imag(outputs.Data[0]))
-				}
-				for j := range outputs.Data {
+				l1 := ComplexAdd(ComplexMul(w1, inputs), b1)
+				for j := range l1.Data {
 					var v complex128
-					if real(outputs.Data[j]) > 0 {
+					if real(l1.Data[j]) > 0 {
 						v = 1
 					} else {
 						v = -1
 					}
-					if imag(outputs.Data[j]) > 0 {
+					if imag(l1.Data[j]) > 0 {
 						v += 1i
 					} else {
 						v += -1i
 					}
-					outputs.Data[j] = v
+					l1.Data[j] = v
 				}
-				if k == 1 {
-					stats[3].Add(real(outputs.Data[0]))
-					stats[4].Add(imag(outputs.Data[0]))
+				l2 := ComplexAdd(ComplexMul(w2, l1), b2)
+				for j, v := range l2.Data {
+					if ((j == k) && real(v) > 0 && imag(v) > 0) ||
+						((j == k) && real(v) < 0 && imag(v) < 0) {
+						correct++
+					} else if ((j != k) && real(v) > 0 && imag(v) < 0) ||
+						((j != k) && real(v) < 0 && imag(v) > 0) {
+						incorrect++
+					}
 				}
-				inputs = outputs
 			}
 			samples = append(samples, float64(correct))
-			stats[0].Add(float64(len(target) - correct))
-			if correct == len(target) {
+			stats[0].Add(float64(len(target) - correct + incorrect))
+			if correct == len(target) && incorrect == 0 {
 				fmt.Println(i, correct)
 				found = true
 				break
@@ -184,7 +234,7 @@ func IRIS(seed int) {
 	}
 
 	p := plot.New()
-	p.Title.Text = "rnn"
+	p.Title.Text = "iris"
 
 	histogram, err := plotter.NewHist(d, 10)
 	if err != nil {
@@ -192,7 +242,7 @@ func IRIS(seed int) {
 	}
 	p.Add(histogram)
 
-	err = p.Save(8*vg.Inch, 8*vg.Inch, "qrnn.png")
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "iris.png")
 	if err != nil {
 		panic(err)
 	}
@@ -236,21 +286,31 @@ Search:
 					continue
 				}
 				g := copy(&pool[i])
-				w := pool[j].Weights
-				b := pool[j].Bias
-				g.Weights[rng.Intn(len(g.Weights))].Mean = w[rng.Intn(len(w))].Mean
-				g.Weights[rng.Intn(len(g.Weights))].StdDev = w[rng.Intn(len(w))].StdDev
-				g.Bias[rng.Intn(len(g.Bias))].Mean = b[rng.Intn(len(b))].Mean
-				g.Bias[rng.Intn(len(g.Bias))].StdDev = b[rng.Intn(len(b))].StdDev
+				w1 := pool[j].W1
+				b1 := pool[j].B1
+				w2 := pool[j].W2
+				b2 := pool[j].B2
+				g.W1[rng.Intn(len(g.W1))].Mean = w1[rng.Intn(len(w1))].Mean
+				g.W1[rng.Intn(len(g.W1))].StdDev = w1[rng.Intn(len(w1))].StdDev
+				g.B1[rng.Intn(len(g.B1))].Mean = b1[rng.Intn(len(b1))].Mean
+				g.B1[rng.Intn(len(g.B1))].StdDev = b1[rng.Intn(len(b1))].StdDev
+				g.W2[rng.Intn(len(g.W2))].Mean = w2[rng.Intn(len(w2))].Mean
+				g.W2[rng.Intn(len(g.W2))].StdDev = w2[rng.Intn(len(w2))].StdDev
+				g.B2[rng.Intn(len(g.B2))].Mean = b2[rng.Intn(len(b2))].Mean
+				g.B2[rng.Intn(len(g.B2))].StdDev = b2[rng.Intn(len(b2))].StdDev
 				pool = append(pool, g)
 			}
 		}
 		for i := 0; i < pop; i++ {
 			g := copy(&pool[i])
-			g.Weights[rng.Intn(len(g.Weights))].Mean += rng.NormFloat64()
-			g.Weights[rng.Intn(len(g.Weights))].StdDev += rng.NormFloat64()
-			g.Bias[rng.Intn(len(g.Bias))].Mean += rng.NormFloat64()
-			g.Bias[rng.Intn(len(g.Bias))].StdDev += rng.NormFloat64()
+			g.W1[rng.Intn(len(g.W1))].Mean += rng.NormFloat64()
+			g.W1[rng.Intn(len(g.W1))].StdDev += rng.NormFloat64()
+			g.B1[rng.Intn(len(g.B1))].Mean += rng.NormFloat64()
+			g.B1[rng.Intn(len(g.B1))].StdDev += rng.NormFloat64()
+			g.W2[rng.Intn(len(g.W2))].Mean += rng.NormFloat64()
+			g.W2[rng.Intn(len(g.W2))].StdDev += rng.NormFloat64()
+			g.B2[rng.Intn(len(g.B2))].Mean += rng.NormFloat64()
+			g.B2[rng.Intn(len(g.B2))].StdDev += rng.NormFloat64()
 			pool = append(pool, g)
 		}
 		done := make(chan bool, 8)
