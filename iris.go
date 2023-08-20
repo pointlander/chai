@@ -18,6 +18,35 @@ import (
 	"gonum.org/v1/plot/vg"
 )
 
+// Network is a neural network
+type Network struct {
+	W1 ComplexMatrix
+	B1 ComplexMatrix
+	W2 ComplexMatrix
+	B2 ComplexMatrix
+}
+
+// Infer computes the output of the network
+func (n Network) Infer(inputs ComplexMatrix) (output ComplexMatrix) {
+	l1 := ComplexAdd(ComplexMul(n.W1, inputs), n.B1)
+	for j := range l1.Data {
+		var v complex128
+		if real(l1.Data[j]) > 0 {
+			v = 1
+		} else {
+			v = -1
+		}
+		if imag(l1.Data[j]) > 0 {
+			v += 1i
+		} else {
+			v += -1i
+		}
+		l1.Data[j] = v
+	}
+	l2 := ComplexAdd(ComplexMul(n.W2, l1), n.B2)
+	return l2
+}
+
 // QRNN implements a complex recurrent neural network for computing a true random string
 func IRIS(seed int) {
 	cpus := runtime.NumCPU()
@@ -93,11 +122,12 @@ func IRIS(seed int) {
 		}
 	}
 
-	sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, stats []Stat, found bool) {
+	sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, stats []Stat, network *Network, found bool) {
 		stats = make([]Stat, 1)
 		scale := 128
 		for i := 0; i < scale; i++ {
-			w1 := NewComplexMatrix(0, cols, rows)
+			n := Network{}
+			n.W1 = NewComplexMatrix(0, cols, rows)
 			for i := 0; i < len(g.W1); i += 2 {
 				a := g.W1[i]
 				b := g.W1[i+1]
@@ -113,9 +143,9 @@ func IRIS(seed int) {
 				} else {
 					v += -1i
 				}
-				w1.Data = append(w1.Data, v)
+				n.W1.Data = append(n.W1.Data, v)
 			}
-			b1 := NewComplexMatrix(0, 1, rows)
+			n.B1 = NewComplexMatrix(0, 1, rows)
 			for i := 0; i < len(g.B1); i += 2 {
 				x := g.B1[i]
 				y := g.B1[i+1]
@@ -131,9 +161,9 @@ func IRIS(seed int) {
 				} else {
 					v += -1i
 				}
-				b1.Data = append(b1.Data, v)
+				n.B1.Data = append(n.B1.Data, v)
 			}
-			w2 := NewComplexMatrix(0, cols, 3)
+			n.W2 = NewComplexMatrix(0, cols, 3)
 			for i := 0; i < len(g.W1); i += 2 {
 				a := g.W2[i]
 				b := g.W2[i+1]
@@ -149,9 +179,9 @@ func IRIS(seed int) {
 				} else {
 					v += -1i
 				}
-				w2.Data = append(w2.Data, v)
+				n.W2.Data = append(n.W2.Data, v)
 			}
-			b2 := NewComplexMatrix(0, 1, 3)
+			n.B2 = NewComplexMatrix(0, 1, 3)
 			for i := 0; i < len(g.B1); i += 2 {
 				x := g.B1[i]
 				y := g.B1[i+1]
@@ -167,7 +197,7 @@ func IRIS(seed int) {
 				} else {
 					v += -1i
 				}
-				b2.Data = append(b2.Data, v)
+				n.B2.Data = append(n.B2.Data, v)
 			}
 			inputs := NewComplexMatrix(0, cols, 1)
 			for i := 0; i < cols; i++ {
@@ -178,22 +208,7 @@ func IRIS(seed int) {
 				for j := range inputs.Data {
 					inputs.Data[j] = complex(v[j], 0)
 				}
-				l1 := ComplexAdd(ComplexMul(w1, inputs), b1)
-				for j := range l1.Data {
-					var v complex128
-					if real(l1.Data[j]) > 0 {
-						v = 1
-					} else {
-						v = -1
-					}
-					if imag(l1.Data[j]) > 0 {
-						v += 1i
-					} else {
-						v += -1i
-					}
-					l1.Data[j] = v
-				}
-				l2 := ComplexAdd(ComplexMul(w2, l1), b2)
+				l2 := n.Infer(inputs)
 				for j, v := range l2.Data {
 					if ((j == k) && real(v) > 0 && imag(v) > 0) ||
 						((j == k) && real(v) < 0 && imag(v) < 0) {
@@ -209,6 +224,7 @@ func IRIS(seed int) {
 			if correct == len(target) && incorrect == 0 {
 				fmt.Println(i, correct)
 				found = true
+				network = &n
 				break
 			}
 		}
@@ -216,12 +232,12 @@ func IRIS(seed int) {
 		for i := range stats {
 			stats[i].Normalize()
 		}
-		return samples, stats, found
+		return samples, stats, nil, found
 	}
 	done := false
 	d := make(plotter.Values, 0, 8)
 	for i := range pool {
-		dd, stats, found := sample(rng, &pool[i])
+		dd, stats, _, found := sample(rng, &pool[i])
 		fmt.Println(i, stats[0].Mean, stats[0].StdDev)
 		fmt.Println(stats)
 		if found {
@@ -316,7 +332,7 @@ Search:
 		done := make(chan bool, 8)
 		i, flight := 0, 0
 		task := func(rng *rand.Rand, i int) {
-			_, stats, found := sample(rng, &pool[i])
+			_, stats, _, found := sample(rng, &pool[i])
 			if found {
 				done <- true
 			}
