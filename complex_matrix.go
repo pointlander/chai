@@ -106,3 +106,27 @@ func ComplexAdd(m ComplexMatrix, n ComplexMatrix) ComplexMatrix {
 	}
 	return o
 }
+
+// ComplexActivation is a complex activation function
+func ComplexActivation(m ComplexMatrix) ComplexMatrix {
+	o := ComplexMatrix{
+		Cols: m.Cols,
+		Rows: m.Rows,
+		Data: make([]complex128, 0, m.Cols*m.Rows),
+	}
+	for _, value := range m.Data {
+		var v complex128
+		if real(value) > 0 {
+			v = 1
+		} else {
+			v = -1
+		}
+		if imag(value) > 0 {
+			v += 1i
+		} else {
+			v += -1i
+		}
+		o.Data = append(o.Data, v)
+	}
+	return o
+}

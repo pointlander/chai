@@ -28,21 +28,7 @@ type Network struct {
 
 // Infer computes the output of the network
 func (n Network) Infer(inputs ComplexMatrix) (output ComplexMatrix) {
-	l1 := ComplexAdd(ComplexMul(n.W1, inputs), n.B1)
-	for j := range l1.Data {
-		var v complex128
-		if real(l1.Data[j]) > 0 {
-			v = 1
-		} else {
-			v = -1
-		}
-		if imag(l1.Data[j]) > 0 {
-			v += 1i
-		} else {
-			v += -1i
-		}
-		l1.Data[j] = v
-	}
+	l1 := ComplexActivation(ComplexAdd(ComplexMul(n.W1, inputs), n.B1))
 	l2 := ComplexAdd(ComplexMul(n.W2, l1), n.B2)
 	return l2
 }
@@ -221,7 +207,7 @@ func IRIS(seed int) {
 			}
 			samples = append(samples, float64(correct))
 			stats[0].Add(float64(3*len(target) - correct))
-			if correct-3*len(target) == -2 {
+			if 3*len(target)-correct <= 2 {
 				fmt.Println(i, correct)
 				found = true
 				network = &n
