@@ -232,15 +232,37 @@ func IRIS(seed int) {
 		for i := range stats {
 			stats[i].Normalize()
 		}
-		return samples, stats, nil, found
+		return samples, stats, network, found
 	}
 	done := false
 	d := make(plotter.Values, 0, 8)
 	for i := range pool {
-		dd, stats, _, found := sample(rng, &pool[i])
+		dd, stats, network, found := sample(rng, &pool[i])
 		fmt.Println(i, stats[0].Mean, stats[0].StdDev)
 		fmt.Println(stats)
 		if found {
+			correct, incorrect := 0, 0
+			for _, value := range datum.Fisher {
+				inputs := NewComplexMatrix(0, cols, 1)
+				for i := 0; i < cols; i++ {
+					inputs.Data = append(inputs.Data, 0)
+				}
+				for j := range inputs.Data {
+					inputs.Data[j] = complex(value.Measures[j], 0)
+				}
+				l2 := network.Infer(inputs)
+				for j, v := range l2.Data {
+					if ((j == iris.Labels[value.Label]) && real(v) > 0 && imag(v) > 0) ||
+						((j == 0) && real(v) < 0 && imag(v) < 0) {
+						correct++
+					} else if ((j != iris.Labels[value.Label]) && real(v) > 0 && imag(v) < 0) ||
+						((j != iris.Labels[value.Label]) && real(v) < 0 && imag(v) > 0) {
+						incorrect++
+					}
+				}
+			}
+			fmt.Println("correct", correct)
+			fmt.Println("incorrect", incorrect)
 			done = true
 			break
 		}
