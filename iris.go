@@ -88,12 +88,12 @@ func IRIS(seed int) {
 		for i := 0; i < 2*rows; i++ {
 			b1 = append(b1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		w2 := make([]Distribution, 0, 2*cols*3)
-		for i := 0; i < 2*cols*rows; i++ {
+		w2 := make([]Distribution, 0, 2*rows*3)
+		for i := 0; i < 2*rows*3; i++ {
 			w2 = append(w2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
 		b2 := make([]Distribution, 0, 2*3)
-		for i := 0; i < 2*rows; i++ {
+		for i := 0; i < 2*3; i++ {
 			b2 = append(b2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
 		g := Genome{
@@ -110,10 +110,10 @@ func IRIS(seed int) {
 		copy(w1, g.W1)
 		b1 := make([]Distribution, len(g.B1))
 		copy(b1, g.B1)
-		w2 := make([]Distribution, len(g.W1))
+		w2 := make([]Distribution, len(g.W2))
 		copy(w2, g.W2)
 		b2 := make([]Distribution, len(g.B2))
-		copy(b1, g.B1)
+		copy(b2, g.B2)
 		return Genome{
 			W1: w1,
 			B1: b1,
@@ -163,8 +163,8 @@ func IRIS(seed int) {
 				}
 				n.B1.Data = append(n.B1.Data, v)
 			}
-			n.W2 = NewComplexMatrix(0, cols, 3)
-			for i := 0; i < len(g.W1); i += 2 {
+			n.W2 = NewComplexMatrix(0, rows, 3)
+			for i := 0; i < len(g.W2); i += 2 {
 				a := g.W2[i]
 				b := g.W2[i+1]
 				//layer.Data = append(layer.Data, complex((rng.NormFloat64()+a.Mean)*a.StdDev, (rng.NormFloat64()+b.Mean)*b.StdDev))
@@ -182,9 +182,9 @@ func IRIS(seed int) {
 				n.W2.Data = append(n.W2.Data, v)
 			}
 			n.B2 = NewComplexMatrix(0, 1, 3)
-			for i := 0; i < len(g.B1); i += 2 {
-				x := g.B1[i]
-				y := g.B1[i+1]
+			for i := 0; i < len(g.B2); i += 2 {
+				x := g.B2[i]
+				y := g.B2[i+1]
 				//b.Data = append(b.Data, complex((rng.NormFloat64()+x.Mean)*x.StdDev, (rng.NormFloat64()+y.Mean)*y.StdDev))
 				var v complex128
 				if rng.NormFloat64() > x.Mean {
@@ -213,8 +213,8 @@ func IRIS(seed int) {
 					if ((j == k) && real(v) > 0 && imag(v) > 0) ||
 						((j == k) && real(v) < 0 && imag(v) < 0) {
 						correct++
-					} else if ((j != k) && real(v) > 0 && imag(v) < 0) ||
-						((j != k) && real(v) < 0 && imag(v) > 0) {
+					} else if ((j != k) && real(v) > 0 && imag(v) > 0) ||
+						((j != k) && real(v) < 0 && imag(v) < 0) {
 						incorrect++
 					}
 				}
@@ -253,10 +253,10 @@ func IRIS(seed int) {
 				l2 := network.Infer(inputs)
 				for j, v := range l2.Data {
 					if ((j == iris.Labels[value.Label]) && real(v) > 0 && imag(v) > 0) ||
-						((j == 0) && real(v) < 0 && imag(v) < 0) {
+						((j == iris.Labels[value.Label]) && real(v) < 0 && imag(v) < 0) {
 						correct++
-					} else if ((j != iris.Labels[value.Label]) && real(v) > 0 && imag(v) < 0) ||
-						((j != iris.Labels[value.Label]) && real(v) < 0 && imag(v) > 0) {
+					} else if ((j != iris.Labels[value.Label]) && real(v) > 0 && imag(v) > 0) ||
+						((j != iris.Labels[value.Label]) && real(v) < 0 && imag(v) < 0) {
 						incorrect++
 					}
 				}
