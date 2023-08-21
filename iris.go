@@ -133,12 +133,12 @@ func IRIS(seed int) {
 				b := g.W1[i+1]
 				//layer.Data = append(layer.Data, complex((rng.NormFloat64()+a.Mean)*a.StdDev, (rng.NormFloat64()+b.Mean)*b.StdDev))
 				var v complex128
-				if rng.NormFloat64() > a.Mean {
+				if rng.NormFloat64()*a.StdDev > a.Mean {
 					v = 1
 				} else {
 					v = -1
 				}
-				if rng.NormFloat64() > b.Mean {
+				if rng.NormFloat64()*b.StdDev > b.Mean {
 					v += 1i
 				} else {
 					v += -1i
@@ -151,12 +151,12 @@ func IRIS(seed int) {
 				y := g.B1[i+1]
 				//b.Data = append(b.Data, complex((rng.NormFloat64()+x.Mean)*x.StdDev, (rng.NormFloat64()+y.Mean)*y.StdDev))
 				var v complex128
-				if rng.NormFloat64() > x.Mean {
+				if rng.NormFloat64()*x.StdDev > x.Mean {
 					v = 1
 				} else {
 					v = -1
 				}
-				if rng.NormFloat64() > y.Mean {
+				if rng.NormFloat64()*y.StdDev > y.Mean {
 					v += 1i
 				} else {
 					v += -1i
@@ -169,12 +169,12 @@ func IRIS(seed int) {
 				b := g.W2[i+1]
 				//layer.Data = append(layer.Data, complex((rng.NormFloat64()+a.Mean)*a.StdDev, (rng.NormFloat64()+b.Mean)*b.StdDev))
 				var v complex128
-				if rng.NormFloat64() > a.Mean {
+				if rng.NormFloat64()*a.StdDev > a.Mean {
 					v = 1
 				} else {
 					v = -1
 				}
-				if rng.NormFloat64() > b.Mean {
+				if rng.NormFloat64()*b.StdDev > b.Mean {
 					v += 1i
 				} else {
 					v += -1i
@@ -187,12 +187,12 @@ func IRIS(seed int) {
 				y := g.B2[i+1]
 				//b.Data = append(b.Data, complex((rng.NormFloat64()+x.Mean)*x.StdDev, (rng.NormFloat64()+y.Mean)*y.StdDev))
 				var v complex128
-				if rng.NormFloat64() > x.Mean {
+				if rng.NormFloat64()*x.StdDev > x.Mean {
 					v = 1
 				} else {
 					v = -1
 				}
-				if rng.NormFloat64() > y.Mean {
+				if rng.NormFloat64()*y.StdDev > y.Mean {
 					v += 1i
 				} else {
 					v += -1i
@@ -203,7 +203,7 @@ func IRIS(seed int) {
 			for i := 0; i < cols; i++ {
 				inputs.Data = append(inputs.Data, 0)
 			}
-			correct, incorrect := 0, 0
+			correct := 0
 			for k, v := range target {
 				for j := range inputs.Data {
 					inputs.Data[j] = complex(v[j], 0)
@@ -213,15 +213,15 @@ func IRIS(seed int) {
 					if ((j == k) && real(v) > 0 && imag(v) > 0) ||
 						((j == k) && real(v) < 0 && imag(v) < 0) {
 						correct++
-					} else if ((j != k) && real(v) > 0 && imag(v) > 0) ||
-						((j != k) && real(v) < 0 && imag(v) < 0) {
-						incorrect++
+					} else if ((j != k) && real(v) < 0 && imag(v) > 0) ||
+						((j != k) && real(v) > 0 && imag(v) < 0) {
+						correct++
 					}
 				}
 			}
 			samples = append(samples, float64(correct))
-			stats[0].Add(float64(len(target) - correct + incorrect))
-			if correct == len(target) && incorrect == 0 {
+			stats[0].Add(float64(3*len(target) - correct))
+			if correct-3*len(target) == -2 {
 				fmt.Println(i, correct)
 				found = true
 				network = &n
