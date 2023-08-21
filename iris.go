@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/cmplx"
 	"math/rand"
 	"runtime"
 	"sort"
@@ -190,6 +191,7 @@ func IRIS(seed int) {
 				inputs.Data = append(inputs.Data, 0)
 			}
 			correct := 0
+			length := 0.0
 			for k, v := range target {
 				for j := range inputs.Data {
 					inputs.Data[j] = complex(v[j], 0)
@@ -199,16 +201,24 @@ func IRIS(seed int) {
 					if ((j == k) && real(v) > 0 && imag(v) > 0) ||
 						((j == k) && real(v) < 0 && imag(v) < 0) {
 						correct++
+						mag := 1 - cmplx.Abs(v)
+						length += mag * mag
 					} else if ((j != k) && real(v) < 0 && imag(v) > 0) ||
 						((j != k) && real(v) > 0 && imag(v) < 0) {
 						correct++
+						mag := .5 - cmplx.Abs(v)
+						length += mag * mag
+					} else {
+						mag := .5 - cmplx.Abs(v)
+						length += mag * mag
 					}
 				}
 			}
+			length /= float64(len(target) * 3)
 			samples = append(samples, float64(correct))
-			stats[0].Add(float64(3*len(target) - correct))
-			if 3*len(target)-correct <= 2 {
-				fmt.Println(i, correct)
+			stats[0].Add(float64(3*len(target)-correct) + length)
+			if 3*len(target)-correct <= 2 && length < 3 {
+				fmt.Println(i, correct, length)
 				found = true
 				network = &n
 				break
@@ -225,7 +235,6 @@ func IRIS(seed int) {
 	for i := range pool {
 		dd, stats, network, found := sample(rng, &pool[i])
 		fmt.Println(i, stats[0].Mean, stats[0].StdDev)
-		fmt.Println(stats)
 		if found {
 			correct, incorrect := 0, 0
 			for _, value := range datum.Fisher {
@@ -237,14 +246,26 @@ func IRIS(seed int) {
 					inputs.Data[j] = complex(value.Measures[j], 0)
 				}
 				l2 := network.Infer(inputs)
+				index, max := 0, 0.0
 				for j, v := range l2.Data {
-					if ((j == iris.Labels[value.Label]) && real(v) > 0 && imag(v) > 0) ||
+					if cmplx.Abs(v) > max {
+						if (real(v) > 0 && imag(v) > 0) ||
+							(real(v) < 0 && imag(v) < 0) {
+							index, max = j, cmplx.Abs(v)
+						}
+					}
+					/*if ((j == iris.Labels[value.Label]) && real(v) > 0 && imag(v) > 0) ||
 						((j == iris.Labels[value.Label]) && real(v) < 0 && imag(v) < 0) {
 						correct++
 					} else if ((j != iris.Labels[value.Label]) && real(v) > 0 && imag(v) > 0) ||
 						((j != iris.Labels[value.Label]) && real(v) < 0 && imag(v) < 0) {
 						incorrect++
-					}
+					}*/
+				}
+				if index != iris.Labels[value.Label] {
+					incorrect++
+				} else {
+					correct++
 				}
 			}
 			fmt.Println("correct", correct)
