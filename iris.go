@@ -273,8 +273,8 @@ func IRIS(seed int) {
 					correct++
 				}
 			}
-			fmt.Println("correct", correct)
-			fmt.Println("incorrect", incorrect)
+			fmt.Println("correct", correct, float64(correct)/float64(correct+incorrect))
+			fmt.Println("incorrect", incorrect, float64(incorrect)/float64(correct+incorrect))
 			done = true
 			break
 		}
