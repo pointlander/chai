@@ -7,7 +7,6 @@ package main
 import (
 	"fmt"
 	"math"
-	"math/cmplx"
 	"math/rand"
 	"runtime"
 	"sort"
@@ -75,12 +74,12 @@ func IRIS(seed int) {
 		for i := 0; i < 2*rows; i++ {
 			b1 = append(b1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		w2 := make([]Distribution, 0, 2*rows*3)
+		w2 := make([]Distribution, 0, 2*rows*1)
 		for i := 0; i < 2*rows*3; i++ {
 			w2 = append(w2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		b2 := make([]Distribution, 0, 2*3)
-		for i := 0; i < 2*3; i++ {
+		b2 := make([]Distribution, 0, 2*1)
+		for i := 0; i < 2*1; i++ {
 			b2 = append(b2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
 		g := Genome{
@@ -150,7 +149,7 @@ func IRIS(seed int) {
 				}
 				n.B1.Data = append(n.B1.Data, v)
 			}
-			n.W2 = NewComplexMatrix(0, rows, 3)
+			n.W2 = NewComplexMatrix(0, rows, 1)
 			for i := 0; i < len(g.W2); i += 2 {
 				a := g.W2[i]
 				b := g.W2[i+1]
@@ -168,7 +167,7 @@ func IRIS(seed int) {
 				}
 				n.W2.Data = append(n.W2.Data, v)
 			}
-			n.B2 = NewComplexMatrix(0, 1, 3)
+			n.B2 = NewComplexMatrix(0, 1, 1)
 			for i := 0; i < len(g.B2); i += 2 {
 				x := g.B2[i]
 				y := g.B2[i+1]
@@ -191,34 +190,25 @@ func IRIS(seed int) {
 				inputs.Data = append(inputs.Data, 0)
 			}
 			correct := 0
-			length := 0.0
 			for k, v := range target {
 				for j := range inputs.Data {
 					inputs.Data[j] = complex(v[j], 0)
 				}
 				l2 := n.Infer(inputs)
 				for j, v := range l2.Data {
-					if ((j == k) && real(v) > 0 && imag(v) > 0) ||
-						((j == k) && real(v) < 0 && imag(v) < 0) {
+					if k == 0 && j == 0 && real(v) > 0 && imag(v) > 0 {
 						correct++
-						mag := 1 - cmplx.Abs(v)
-						length += mag * mag
-					} else if ((j != k) && real(v) < 0 && imag(v) > 0) ||
-						((j != k) && real(v) > 0 && imag(v) < 0) {
+					} else if k == 1 && j == 1 && real(v) < 0 && imag(v) > 0 {
 						correct++
-						mag := .5 - cmplx.Abs(v)
-						length += mag * mag
-					} else {
-						mag := .5 - cmplx.Abs(v)
-						length += mag * mag
+					} else if k == 2 && j == 2 && real(v) < 0 && imag(v) < 0 {
+						correct++
 					}
 				}
 			}
-			length /= float64(len(target) * 3)
 			samples = append(samples, float64(correct))
-			stats[0].Add(float64(3*len(target)-correct) + length)
-			if 3*len(target)-correct <= 2 && length < 3 {
-				fmt.Println(i, correct, length)
+			stats[0].Add(float64(len(target) - correct))
+			if len(target)-correct == 0 {
+				fmt.Println(i, correct)
 				found = true
 				network = &n
 				break
@@ -246,21 +236,14 @@ func IRIS(seed int) {
 					inputs.Data[j] = complex(value.Measures[j], 0)
 				}
 				l2 := network.Infer(inputs)
-				index, max := 0, 0.0
-				for j, v := range l2.Data {
-					if cmplx.Abs(v) > max {
-						if (real(v) > 0 && imag(v) > 0) ||
-							(real(v) < 0 && imag(v) < 0) {
-							index, max = j, cmplx.Abs(v)
-						}
-					}
-					/*if ((j == iris.Labels[value.Label]) && real(v) > 0 && imag(v) > 0) ||
-						((j == iris.Labels[value.Label]) && real(v) < 0 && imag(v) < 0) {
-						correct++
-					} else if ((j != iris.Labels[value.Label]) && real(v) > 0 && imag(v) > 0) ||
-						((j != iris.Labels[value.Label]) && real(v) < 0 && imag(v) < 0) {
-						incorrect++
-					}*/
+				index := 0
+				v := l2.Data[0]
+				if real(v) > 0 && imag(v) > 0 {
+					index = 0
+				} else if real(v) < 0 && imag(v) > 0 {
+					index = 1
+				} else if real(v) < 0 && imag(v) < 0 {
+					index = 2
 				}
 				if index != iris.Labels[value.Label] {
 					incorrect++
