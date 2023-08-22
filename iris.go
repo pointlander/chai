@@ -52,9 +52,21 @@ func IRIS(seed int) {
 		}
 	}
 	target := make([][][]float64, 3)
-	target[0] = [][]float64{datum.Fisher[0].Measures, datum.Fisher[1].Measures}
-	target[1] = [][]float64{datum.Fisher[50].Measures, datum.Fisher[51].Measures}
-	target[2] = [][]float64{datum.Fisher[100].Measures, datum.Fisher[101].Measures}
+	target[0] = [][]float64{
+		datum.Fisher[0].Measures,
+		datum.Fisher[1].Measures,
+		datum.Fisher[2].Measures,
+	}
+	target[1] = [][]float64{
+		datum.Fisher[50].Measures,
+		datum.Fisher[51].Measures,
+		datum.Fisher[52].Measures,
+	}
+	target[2] = [][]float64{
+		datum.Fisher[100].Measures,
+		datum.Fisher[101].Measures,
+		datum.Fisher[102].Measures,
+	}
 	fmt.Println(datum.Fisher[0].Label, datum.Fisher[1].Label)
 	fmt.Println(datum.Fisher[50].Label, datum.Fisher[51].Label)
 	fmt.Println(datum.Fisher[100].Label, datum.Fisher[101].Label)
@@ -227,8 +239,8 @@ func IRIS(seed int) {
 				}
 			}
 			samples = append(samples, float64(correct))
-			stats[0].Add(float64(2*len(target) - correct))
-			if 2*len(target)-correct <= 0 {
+			stats[0].Add(float64(3*len(target) - correct))
+			if 3*len(target)-correct <= 0 {
 				fmt.Println(i, correct)
 				found = true
 				network = &n
