@@ -41,10 +41,23 @@ func IRIS(seed int) {
 	if err != nil {
 		panic(err)
 	}
-	target := make([][]float64, 3)
-	target[0] = datum.Fisher[0].Measures
-	target[1] = datum.Fisher[50].Measures
-	target[2] = datum.Fisher[100].Measures
+	for i := range datum.Fisher {
+		sum := 0.0
+		for _, v := range datum.Fisher[i].Measures {
+			sum += v * v
+		}
+		sum = math.Sqrt(sum)
+		for j := range datum.Fisher[i].Measures {
+			datum.Fisher[i].Measures[j] /= sum
+		}
+	}
+	target := make([][][]float64, 3)
+	target[0] = [][]float64{datum.Fisher[0].Measures, datum.Fisher[1].Measures}
+	target[1] = [][]float64{datum.Fisher[50].Measures, datum.Fisher[51].Measures}
+	target[2] = [][]float64{datum.Fisher[100].Measures, datum.Fisher[101].Measures}
+	fmt.Println(datum.Fisher[0].Label, datum.Fisher[1].Label)
+	fmt.Println(datum.Fisher[50].Label, datum.Fisher[51].Label)
+	fmt.Println(datum.Fisher[100].Label, datum.Fisher[101].Label)
 
 	type Distribution struct {
 		Mean   float64
@@ -190,30 +203,32 @@ func IRIS(seed int) {
 				inputs.Data = append(inputs.Data, 0)
 			}
 			correct := 0
-			for k, v := range target {
-				for j := range inputs.Data {
-					inputs.Data[j] = complex(v[j], 0)
-				}
-				l2 := n.Infer(inputs)
-				v := l2.Data[0]
-				switch k {
-				case 0:
-					if real(v) > 0 && imag(v) > 0 {
-						correct++
+			for k, class := range target {
+				for _, v := range class {
+					for j := range inputs.Data {
+						inputs.Data[j] = complex(v[j], v[j])
 					}
-				case 1:
-					if real(v) < 0 && imag(v) > 0 {
-						correct++
-					}
-				case 2:
-					if real(v) < 0 && imag(v) < 0 {
-						correct++
+					l2 := n.Infer(inputs)
+					v := l2.Data[0]
+					switch k {
+					case 0:
+						if real(v) > 0 && imag(v) > 0 {
+							correct++
+						}
+					case 1:
+						if real(v) < 0 && imag(v) > 0 {
+							correct++
+						}
+					case 2:
+						if (real(v) < 0 && imag(v) < 0) || (real(v) > 0 && imag(v) < 0) {
+							correct++
+						}
 					}
 				}
 			}
 			samples = append(samples, float64(correct))
-			stats[0].Add(float64(len(target) - correct))
-			if len(target)-correct <= 1 {
+			stats[0].Add(float64(2*len(target) - correct))
+			if 2*len(target)-correct <= 0 {
 				fmt.Println(i, correct)
 				found = true
 				network = &n
@@ -239,7 +254,7 @@ func IRIS(seed int) {
 					inputs.Data = append(inputs.Data, 0)
 				}
 				for j := range inputs.Data {
-					inputs.Data[j] = complex(value.Measures[j], 0)
+					inputs.Data[j] = complex(value.Measures[j], value.Measures[j])
 				}
 				l2 := network.Infer(inputs)
 				index := 0
@@ -248,10 +263,11 @@ func IRIS(seed int) {
 					index = 0
 				} else if real(v) < 0 && imag(v) > 0 {
 					index = 1
-				} else if real(v) < 0 && imag(v) < 0 {
+				} else if (real(v) < 0 && imag(v) < 0) || (real(v) > 0 && imag(v) < 0) {
 					index = 2
 				}
 				if index != iris.Labels[value.Label] {
+					fmt.Println(value.Label)
 					incorrect++
 				} else {
 					correct++
