@@ -195,19 +195,25 @@ func IRIS(seed int) {
 					inputs.Data[j] = complex(v[j], 0)
 				}
 				l2 := n.Infer(inputs)
-				for j, v := range l2.Data {
-					if k == 0 && j == 0 && real(v) > 0 && imag(v) > 0 {
+				v := l2.Data[0]
+				switch k {
+				case 0:
+					if real(v) > 0 && imag(v) > 0 {
 						correct++
-					} else if k == 1 && j == 1 && real(v) < 0 && imag(v) > 0 {
+					}
+				case 1:
+					if real(v) < 0 && imag(v) > 0 {
 						correct++
-					} else if k == 2 && j == 2 && real(v) < 0 && imag(v) < 0 {
+					}
+				case 2:
+					if real(v) < 0 && imag(v) < 0 {
 						correct++
 					}
 				}
 			}
 			samples = append(samples, float64(correct))
 			stats[0].Add(float64(len(target) - correct))
-			if len(target)-correct == 0 {
+			if len(target)-correct <= 1 {
 				fmt.Println(i, correct)
 				found = true
 				network = &n
