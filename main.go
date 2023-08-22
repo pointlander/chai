@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/cmplx"
 	"math/rand"
 	"runtime"
 	"sort"
@@ -232,6 +233,10 @@ func main() {
 	number = number.Lsh(number, 128)
 	number = number.Sub(number, big.NewInt(1))
 	generate(number)
+
+	for i := 0; i < 8; i++ {
+		fmt.Println(i, cmplx.Exp(complex(0, float64(i)*math.Pi/4)))
+	}
 }
 
 // BigGenetic implements a genetic algorithm with big integers
