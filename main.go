@@ -234,6 +234,25 @@ func main() {
 	number = number.Sub(number, big.NewInt(1))
 	generate(number)
 
+	samples = make(plotter.Values, 0, 8)
+	for i := 0; i < 1000; i++ {
+		samples = append(samples, cmplx.Phase(cmplx.Exp(complex(0, math.Pi*rnd.NormFloat64()))))
+	}
+
+	p = plot.New()
+	p.Title.Text = "gauss"
+
+	histogram, err = plotter.NewHist(samples, 10)
+	if err != nil {
+		panic(err)
+	}
+	p.Add(histogram)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "gauss.png")
+	if err != nil {
+		panic(err)
+	}
+
 	for i := 0; i < 8; i++ {
 		fmt.Println(i, cmplx.Exp(complex(0, float64(i)*math.Pi/4)))
 	}
