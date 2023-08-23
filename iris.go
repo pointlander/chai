@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/cmplx"
 	"math/rand"
 	"runtime"
 	"sort"
@@ -51,21 +52,19 @@ func IRIS(seed int) {
 			datum.Fisher[i].Measures[j] /= sum
 		}
 	}
-	target := make([][][]float64, 3)
-	target[0] = [][]float64{
-		datum.Fisher[0].Measures,
-		datum.Fisher[1].Measures,
-		datum.Fisher[2].Measures,
+	const s = 3
+	target := make([][][]float64, 5)
+	target[0] = [][]float64{}
+	for i := 0; i < s; i++ {
+		target[0] = append(target[0], datum.Fisher[i].Measures)
 	}
-	target[1] = [][]float64{
-		datum.Fisher[50].Measures,
-		datum.Fisher[51].Measures,
-		datum.Fisher[52].Measures,
+	target[1] = [][]float64{}
+	for i := 0; i < s; i++ {
+		target[1] = append(target[1], datum.Fisher[50+i].Measures)
 	}
-	target[2] = [][]float64{
-		datum.Fisher[100].Measures,
-		datum.Fisher[101].Measures,
-		datum.Fisher[102].Measures,
+	target[2] = [][]float64{}
+	for i := 0; i < s; i++ {
+		target[2] = append(target[2], datum.Fisher[100+i].Measures)
 	}
 	fmt.Println(datum.Fisher[0].Label, datum.Fisher[1].Label)
 	fmt.Println(datum.Fisher[50].Label, datum.Fisher[51].Label)
@@ -90,21 +89,22 @@ func IRIS(seed int) {
 	pool := make([]Genome, 0, pop)
 
 	factor := math.Sqrt(2.0 / float64(cols))
+	const bits, denominator = 1, 4
 	for i := 0; i < pop; i++ {
-		w1 := make([]Distribution, 0, 2*cols*rows)
-		for i := 0; i < 2*cols*rows; i++ {
+		w1 := make([]Distribution, 0, bits*cols*rows)
+		for i := 0; i < bits*cols*rows; i++ {
 			w1 = append(w1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		b1 := make([]Distribution, 0, 2*rows)
-		for i := 0; i < 2*rows; i++ {
+		b1 := make([]Distribution, 0, bits*rows)
+		for i := 0; i < bits*rows; i++ {
 			b1 = append(b1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		w2 := make([]Distribution, 0, 2*rows*1)
-		for i := 0; i < 2*rows*3; i++ {
+		w2 := make([]Distribution, 0, bits*rows*1)
+		for i := 0; i < bits*rows*3; i++ {
 			w2 = append(w2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		b2 := make([]Distribution, 0, 2*1)
-		for i := 0; i < 2*1; i++ {
+		b2 := make([]Distribution, 0, bits*1)
+		for i := 0; i < bits*1; i++ {
 			b2 = append(b2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
 		g := Genome{
@@ -139,76 +139,64 @@ func IRIS(seed int) {
 		for i := 0; i < scale; i++ {
 			n := Network{}
 			n.W1 = NewComplexMatrix(0, cols, rows)
-			for i := 0; i < len(g.W1); i += 2 {
+			for i := 0; i < len(g.W1); i += bits {
+				/*max, index := 0.0, 0
+				for j := 0; j < bits; j++ {
+					a := g.W1[i+j]
+					sample := rng.NormFloat64()*a.StdDev - a.Mean
+					if sample > max {
+						max, index = sample, j
+					}
+
+				}
+				n.W1.Data = append(n.W1.Data, cmplx.Exp(complex(0, float64(index)*math.Pi/denominator)))*/
 				a := g.W1[i]
-				b := g.W1[i+1]
-				//layer.Data = append(layer.Data, complex((rng.NormFloat64()+a.Mean)*a.StdDev, (rng.NormFloat64()+b.Mean)*b.StdDev))
-				var v complex128
-				if rng.NormFloat64()*a.StdDev > a.Mean {
-					v = 1
-				} else {
-					v = -1
-				}
-				if rng.NormFloat64()*b.StdDev > b.Mean {
-					v += 1i
-				} else {
-					v += -1i
-				}
-				n.W1.Data = append(n.W1.Data, v)
+				n.W1.Data = append(n.W1.Data, cmplx.Exp(complex(0, rng.NormFloat64()*a.StdDev+a.Mean*math.Pi)))
 			}
 			n.B1 = NewComplexMatrix(0, 1, rows)
-			for i := 0; i < len(g.B1); i += 2 {
-				x := g.B1[i]
-				y := g.B1[i+1]
-				//b.Data = append(b.Data, complex((rng.NormFloat64()+x.Mean)*x.StdDev, (rng.NormFloat64()+y.Mean)*y.StdDev))
-				var v complex128
-				if rng.NormFloat64()*x.StdDev > x.Mean {
-					v = 1
-				} else {
-					v = -1
+			for i := 0; i < len(g.B1); i += bits {
+				/*max, index := 0.0, 0
+				for j := 0; j < bits; j++ {
+					a := g.B1[i+j]
+					sample := rng.NormFloat64()*a.StdDev - a.Mean
+					if sample > max {
+						max, index = sample, j
+					}
+
 				}
-				if rng.NormFloat64()*y.StdDev > y.Mean {
-					v += 1i
-				} else {
-					v += -1i
-				}
-				n.B1.Data = append(n.B1.Data, v)
+				n.B1.Data = append(n.B1.Data, cmplx.Exp(complex(0, float64(index)*math.Pi/denominator)))*/
+				a := g.B1[i]
+				n.B1.Data = append(n.B1.Data, cmplx.Exp(complex(0, rng.NormFloat64()*a.StdDev+a.Mean*math.Pi)))
 			}
 			n.W2 = NewComplexMatrix(0, rows, 1)
-			for i := 0; i < len(g.W2); i += 2 {
+			for i := 0; i < len(g.W2); i += bits {
+				/*max, index := 0.0, 0
+				for j := 0; j < bits; j++ {
+					a := g.W2[i+j]
+					sample := rng.NormFloat64()*a.StdDev - a.Mean
+					if sample > max {
+						max, index = sample, j
+					}
+
+				}
+				n.W2.Data = append(n.W2.Data, cmplx.Exp(complex(0, float64(index)*math.Pi/denominator)))*/
 				a := g.W2[i]
-				b := g.W2[i+1]
-				//layer.Data = append(layer.Data, complex((rng.NormFloat64()+a.Mean)*a.StdDev, (rng.NormFloat64()+b.Mean)*b.StdDev))
-				var v complex128
-				if rng.NormFloat64()*a.StdDev > a.Mean {
-					v = 1
-				} else {
-					v = -1
-				}
-				if rng.NormFloat64()*b.StdDev > b.Mean {
-					v += 1i
-				} else {
-					v += -1i
-				}
-				n.W2.Data = append(n.W2.Data, v)
+				n.W2.Data = append(n.W2.Data, cmplx.Exp(complex(0, rng.NormFloat64()*a.StdDev+a.Mean*math.Pi)))
 			}
 			n.B2 = NewComplexMatrix(0, 1, 1)
-			for i := 0; i < len(g.B2); i += 2 {
-				x := g.B2[i]
-				y := g.B2[i+1]
-				//b.Data = append(b.Data, complex((rng.NormFloat64()+x.Mean)*x.StdDev, (rng.NormFloat64()+y.Mean)*y.StdDev))
-				var v complex128
-				if rng.NormFloat64()*x.StdDev > x.Mean {
-					v = 1
-				} else {
-					v = -1
+			for i := 0; i < len(g.B2); i += bits {
+				/*max, index := 0.0, 0
+				for j := 0; j < bits; j++ {
+					a := g.B2[i+j]
+					sample := rng.NormFloat64()*a.StdDev - a.Mean
+					if sample > max {
+						max, index = sample, j
+					}
+
 				}
-				if rng.NormFloat64()*y.StdDev > y.Mean {
-					v += 1i
-				} else {
-					v += -1i
-				}
-				n.B2.Data = append(n.B2.Data, v)
+				n.B2.Data = append(n.B2.Data, cmplx.Exp(complex(0, float64(index)*math.Pi/denominator)))*/
+				a := g.B2[i]
+				n.B2.Data = append(n.B2.Data, cmplx.Exp(complex(0, rng.NormFloat64()*a.StdDev+a.Mean*math.Pi)))
 			}
 			inputs := NewComplexMatrix(0, cols, 1)
 			for i := 0; i < cols; i++ {
@@ -239,8 +227,8 @@ func IRIS(seed int) {
 				}
 			}
 			samples = append(samples, float64(correct))
-			stats[0].Add(float64(3*len(target) - correct))
-			if 3*len(target)-correct <= 0 {
+			stats[0].Add(float64(s*len(target) - correct))
+			if s*len(target)-correct <= 6 {
 				fmt.Println(i, correct)
 				found = true
 				network = &n
