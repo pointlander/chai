@@ -130,3 +130,30 @@ func ComplexActivation(m ComplexMatrix) ComplexMatrix {
 	}
 	return o
 }
+
+// EverettActivation is the everett complex activation function
+func EverettActivation(m ComplexMatrix) ComplexMatrix {
+	o := ComplexMatrix{
+		Cols: 2 * m.Cols,
+		Rows: m.Rows,
+		Data: make([]complex128, 0, 2*m.Cols*m.Rows),
+	}
+	for _, value := range m.Data {
+		rmin, rmax := real(value), real(value)
+		if rmin > 0 {
+			rmin = 0
+		}
+		if rmax < 0 {
+			rmax = 0
+		}
+		imin, imax := imag(value), imag(value)
+		if imin > 0 {
+			imin = 0
+		}
+		if imax < 0 {
+			imax = 0
+		}
+		o.Data = append(o.Data, complex(rmin, imin), complex(rmax, imax))
+	}
+	return o
+}

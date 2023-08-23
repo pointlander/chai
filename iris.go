@@ -28,7 +28,7 @@ type Network struct {
 
 // Infer computes the output of the network
 func (n Network) Infer(inputs ComplexMatrix) (output ComplexMatrix) {
-	l1 := ComplexActivation(ComplexAdd(ComplexMul(n.W1, inputs), n.B1))
+	l1 := EverettActivation(ComplexAdd(ComplexMul(n.W1, inputs), n.B1))
 	l2 := ComplexAdd(ComplexMul(n.W2, l1), n.B2)
 	return l2
 }
@@ -99,7 +99,7 @@ func IRIS(seed int) {
 		for i := 0; i < 2*rows; i++ {
 			b1 = append(b1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		w2 := make([]Distribution, 0, 2*rows*1)
+		w2 := make([]Distribution, 0, 2*2*rows*1)
 		for i := 0; i < 2*rows*3; i++ {
 			w2 = append(w2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
@@ -174,7 +174,7 @@ func IRIS(seed int) {
 				}
 				n.B1.Data = append(n.B1.Data, v)
 			}
-			n.W2 = NewComplexMatrix(0, rows, 1)
+			n.W2 = NewComplexMatrix(0, 2*rows, 1)
 			for i := 0; i < len(g.W2); i += 2 {
 				a := g.W2[i]
 				b := g.W2[i+1]
