@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/cmplx"
 	"math/rand"
 	"runtime"
 	"sort"
@@ -20,10 +21,11 @@ import (
 
 // Network is a neural network
 type Network struct {
-	W1 ComplexMatrix
-	B1 ComplexMatrix
-	W2 ComplexMatrix
-	B2 ComplexMatrix
+	Theta []float64
+	W1    ComplexMatrix
+	B1    ComplexMatrix
+	W2    ComplexMatrix
+	B2    ComplexMatrix
 }
 
 // Infer computes the output of the network
@@ -52,20 +54,18 @@ func IRIS(seed int) {
 		}
 	}
 	target := make([][][]float64, 3)
-	target[0] = [][]float64{
-		datum.Fisher[0].Measures,
-		datum.Fisher[1].Measures,
-		datum.Fisher[2].Measures,
+	const points = 3
+	target[0] = [][]float64{}
+	for i := 0; i < points; i++ {
+		target[0] = append(target[0], datum.Fisher[i].Measures)
 	}
-	target[1] = [][]float64{
-		datum.Fisher[50].Measures,
-		datum.Fisher[51].Measures,
-		datum.Fisher[52].Measures,
+	target[1] = [][]float64{}
+	for i := 0; i < points; i++ {
+		target[1] = append(target[1], datum.Fisher[i+50].Measures)
 	}
-	target[2] = [][]float64{
-		datum.Fisher[100].Measures,
-		datum.Fisher[101].Measures,
-		datum.Fisher[102].Measures,
+	target[2] = [][]float64{}
+	for i := 0; i < points; i++ {
+		target[2] = append(target[2], datum.Fisher[i+100].Measures)
 	}
 	fmt.Println(datum.Fisher[0].Label, datum.Fisher[1].Label)
 	fmt.Println(datum.Fisher[50].Label, datum.Fisher[51].Label)
@@ -79,6 +79,7 @@ func IRIS(seed int) {
 	const cols, rows = 4, 4
 
 	type Genome struct {
+		Theta   []Distribution
 		W1      []Distribution
 		B1      []Distribution
 		W2      []Distribution
@@ -91,6 +92,10 @@ func IRIS(seed int) {
 
 	factor := math.Sqrt(2.0 / float64(cols))
 	for i := 0; i < pop; i++ {
+		theta := make([]Distribution, 0, 4)
+		for i := 0; i < 4; i++ {
+			theta = append(theta, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+		}
 		w1 := make([]Distribution, 0, 2*cols*rows)
 		for i := 0; i < 2*cols*rows; i++ {
 			w1 = append(w1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
@@ -108,15 +113,18 @@ func IRIS(seed int) {
 			b2 = append(b2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
 		g := Genome{
-			W1: w1,
-			B1: b1,
-			W2: w2,
-			B2: b2,
+			Theta: theta,
+			W1:    w1,
+			B1:    b1,
+			W2:    w2,
+			B2:    b2,
 		}
 		pool = append(pool, g)
 	}
 
 	copy := func(g *Genome) Genome {
+		theta := make([]Distribution, len(g.Theta))
+		copy(theta, g.Theta)
 		w1 := make([]Distribution, len(g.W1))
 		copy(w1, g.W1)
 		b1 := make([]Distribution, len(g.B1))
@@ -126,10 +134,11 @@ func IRIS(seed int) {
 		b2 := make([]Distribution, len(g.B2))
 		copy(b2, g.B2)
 		return Genome{
-			W1: w1,
-			B1: b1,
-			W2: w2,
-			B2: b2,
+			Theta: theta,
+			W1:    w1,
+			B1:    b1,
+			W2:    w2,
+			B2:    b2,
 		}
 	}
 
@@ -138,11 +147,14 @@ func IRIS(seed int) {
 		scale := 128
 		for i := 0; i < scale; i++ {
 			n := Network{}
+			n.Theta = make([]float64, 0, 4)
+			for i := 0; i < 4; i++ {
+				n.Theta = append(n.Theta, rng.NormFloat64()*g.Theta[i].StdDev+g.Theta[i].Mean)
+			}
 			n.W1 = NewComplexMatrix(0, cols, rows)
 			for i := 0; i < len(g.W1); i += 2 {
 				a := g.W1[i]
 				b := g.W1[i+1]
-				//layer.Data = append(layer.Data, complex((rng.NormFloat64()+a.Mean)*a.StdDev, (rng.NormFloat64()+b.Mean)*b.StdDev))
 				var v complex128
 				if rng.NormFloat64()*a.StdDev > a.Mean {
 					v = 1
@@ -160,7 +172,6 @@ func IRIS(seed int) {
 			for i := 0; i < len(g.B1); i += 2 {
 				x := g.B1[i]
 				y := g.B1[i+1]
-				//b.Data = append(b.Data, complex((rng.NormFloat64()+x.Mean)*x.StdDev, (rng.NormFloat64()+y.Mean)*y.StdDev))
 				var v complex128
 				if rng.NormFloat64()*x.StdDev > x.Mean {
 					v = 1
@@ -178,7 +189,6 @@ func IRIS(seed int) {
 			for i := 0; i < len(g.W2); i += 2 {
 				a := g.W2[i]
 				b := g.W2[i+1]
-				//layer.Data = append(layer.Data, complex((rng.NormFloat64()+a.Mean)*a.StdDev, (rng.NormFloat64()+b.Mean)*b.StdDev))
 				var v complex128
 				if rng.NormFloat64()*a.StdDev > a.Mean {
 					v = 1
@@ -196,7 +206,6 @@ func IRIS(seed int) {
 			for i := 0; i < len(g.B2); i += 2 {
 				x := g.B2[i]
 				y := g.B2[i+1]
-				//b.Data = append(b.Data, complex((rng.NormFloat64()+x.Mean)*x.StdDev, (rng.NormFloat64()+y.Mean)*y.StdDev))
 				var v complex128
 				if rng.NormFloat64()*x.StdDev > x.Mean {
 					v = 1
@@ -214,34 +223,32 @@ func IRIS(seed int) {
 			for i := 0; i < cols; i++ {
 				inputs.Data = append(inputs.Data, 0)
 			}
-			correct := 0
+			fitness := 0.0
 			for k, class := range target {
 				for _, v := range class {
 					for j := range inputs.Data {
-						inputs.Data[j] = complex(v[j], v[j])
+						inputs.Data[j] = cmplx.Rect(v[j], n.Theta[j])
 					}
 					l2 := n.Infer(inputs)
 					v := l2.Data[0]
 					switch k {
 					case 0:
-						if real(v) > 0 && imag(v) > 0 {
-							correct++
-						}
+						fit := cmplx.Phase(v) - math.Pi/4
+						fitness += fit * fit
 					case 1:
-						if real(v) < 0 && imag(v) > 0 {
-							correct++
-						}
+						fit := cmplx.Phase(v) - 3*math.Pi/4
+						fitness += fit * fit
 					case 2:
-						if (real(v) < 0 && imag(v) < 0) || (real(v) > 0 && imag(v) < 0) {
-							correct++
-						}
+						fit := cmplx.Phase(v) - 3*math.Pi/2 + 2*math.Pi
+						fitness += fit * fit
 					}
 				}
 			}
-			samples = append(samples, float64(correct))
-			stats[0].Add(float64(3*len(target) - correct))
-			if 3*len(target)-correct <= 0 {
-				fmt.Println(i, correct)
+			fitness /= float64(points * len(target))
+			samples = append(samples, fitness)
+			stats[0].Add(float64(fitness))
+			if fitness <= .1 {
+				fmt.Println(i, fitness)
 				found = true
 				network = &n
 				break
@@ -253,40 +260,43 @@ func IRIS(seed int) {
 		}
 		return samples, stats, network, found
 	}
+	test := func(network *Network) {
+		correct, incorrect := 0, 0
+		for _, value := range datum.Fisher {
+			inputs := NewComplexMatrix(0, cols, 1)
+			for i := 0; i < cols; i++ {
+				inputs.Data = append(inputs.Data, 0)
+			}
+			for j := range inputs.Data {
+				inputs.Data[j] = cmplx.Rect(value.Measures[j], network.Theta[j])
+			}
+			l2 := network.Infer(inputs)
+			index := 0
+			v := l2.Data[0]
+			if real(v) > 0 && imag(v) > 0 {
+				index = 0
+			} else if real(v) < 0 && imag(v) > 0 {
+				index = 1
+			} else if (real(v) < 0 && imag(v) < 0) || (real(v) > 0 && imag(v) < 0) {
+				index = 2
+			}
+			if index != iris.Labels[value.Label] {
+				fmt.Println(value.Label)
+				incorrect++
+			} else {
+				correct++
+			}
+		}
+		fmt.Println("correct", correct, float64(correct)/float64(correct+incorrect))
+		fmt.Println("incorrect", incorrect, float64(incorrect)/float64(correct+incorrect))
+	}
 	done := false
 	d := make(plotter.Values, 0, 8)
 	for i := range pool {
 		dd, stats, network, found := sample(rng, &pool[i])
 		fmt.Println(i, stats[0].Mean, stats[0].StdDev)
 		if found {
-			correct, incorrect := 0, 0
-			for _, value := range datum.Fisher {
-				inputs := NewComplexMatrix(0, cols, 1)
-				for i := 0; i < cols; i++ {
-					inputs.Data = append(inputs.Data, 0)
-				}
-				for j := range inputs.Data {
-					inputs.Data[j] = complex(value.Measures[j], value.Measures[j])
-				}
-				l2 := network.Infer(inputs)
-				index := 0
-				v := l2.Data[0]
-				if real(v) > 0 && imag(v) > 0 {
-					index = 0
-				} else if real(v) < 0 && imag(v) > 0 {
-					index = 1
-				} else if (real(v) < 0 && imag(v) < 0) || (real(v) > 0 && imag(v) < 0) {
-					index = 2
-				}
-				if index != iris.Labels[value.Label] {
-					fmt.Println(value.Label)
-					incorrect++
-				} else {
-					correct++
-				}
-			}
-			fmt.Println("correct", correct, float64(correct)/float64(correct+incorrect))
-			fmt.Println("incorrect", incorrect, float64(incorrect)/float64(correct+incorrect))
+			test(network)
 			done = true
 			break
 		}
@@ -378,8 +388,9 @@ Search:
 		done := make(chan bool, 8)
 		i, flight := 0, 0
 		task := func(rng *rand.Rand, i int) {
-			_, stats, _, found := sample(rng, &pool[i])
+			_, stats, network, found := sample(rng, &pool[i])
 			if found {
+				test(network)
 				done <- true
 			}
 			pool[i].Fitness = stats[0]
