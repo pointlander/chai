@@ -155,7 +155,7 @@ func IRIS(seed int) {
 			for i := 0; i < len(g.W1); i += 2 {
 				a := g.W1[i]
 				b := g.W1[i+1]
-				var v complex128
+				/*var v complex128
 				if rng.NormFloat64()*a.StdDev > a.Mean {
 					v = 1
 				} else {
@@ -166,13 +166,14 @@ func IRIS(seed int) {
 				} else {
 					v += -1i
 				}
-				n.W1.Data = append(n.W1.Data, v)
+				n.W1.Data = append(n.W1.Data, v)*/
+				n.W1.Data = append(n.W1.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
 			}
 			n.B1 = NewComplexMatrix(0, 1, rows)
 			for i := 0; i < len(g.B1); i += 2 {
 				x := g.B1[i]
 				y := g.B1[i+1]
-				var v complex128
+				/*var v complex128
 				if rng.NormFloat64()*x.StdDev > x.Mean {
 					v = 1
 				} else {
@@ -183,13 +184,14 @@ func IRIS(seed int) {
 				} else {
 					v += -1i
 				}
-				n.B1.Data = append(n.B1.Data, v)
+				n.B1.Data = append(n.B1.Data, v)*/
+				n.B1.Data = append(n.B1.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
 			}
 			n.W2 = NewComplexMatrix(0, 2*rows, 1)
 			for i := 0; i < len(g.W2); i += 2 {
 				a := g.W2[i]
 				b := g.W2[i+1]
-				var v complex128
+				/*var v complex128
 				if rng.NormFloat64()*a.StdDev > a.Mean {
 					v = 1
 				} else {
@@ -200,13 +202,14 @@ func IRIS(seed int) {
 				} else {
 					v += -1i
 				}
-				n.W2.Data = append(n.W2.Data, v)
+				n.W2.Data = append(n.W2.Data, v)*/
+				n.W2.Data = append(n.W2.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
 			}
 			n.B2 = NewComplexMatrix(0, 1, 1)
 			for i := 0; i < len(g.B2); i += 2 {
 				x := g.B2[i]
 				y := g.B2[i+1]
-				var v complex128
+				/*var v complex128
 				if rng.NormFloat64()*x.StdDev > x.Mean {
 					v = 1
 				} else {
@@ -217,7 +220,8 @@ func IRIS(seed int) {
 				} else {
 					v += -1i
 				}
-				n.B2.Data = append(n.B2.Data, v)
+				n.B2.Data = append(n.B2.Data, v)*/
+				n.B2.Data = append(n.B2.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
 			}
 			inputs := NewComplexMatrix(0, cols, 1)
 			for i := 0; i < cols; i++ {
@@ -247,7 +251,7 @@ func IRIS(seed int) {
 			fitness /= float64(points * len(target))
 			samples = append(samples, fitness)
 			stats[0].Add(float64(fitness))
-			if fitness <= .1 {
+			if fitness <= .01 {
 				fmt.Println(i, fitness)
 				found = true
 				network = &n
