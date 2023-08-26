@@ -43,14 +43,23 @@ func IRIS(seed int) {
 	if err != nil {
 		panic(err)
 	}
+	min, max := make([]float64, 4), make([]float64, 4)
+	for i := range min {
+		min[i] = math.MaxFloat64
+	}
 	for i := range datum.Fisher {
-		sum := 0.0
-		for _, v := range datum.Fisher[i].Measures {
-			sum += v * v
+		for j, v := range datum.Fisher[i].Measures {
+			if v < min[j] {
+				min[j] = v
+			}
+			if v > max[j] {
+				max[j] = v
+			}
 		}
-		sum = math.Sqrt(sum)
-		for j := range datum.Fisher[i].Measures {
-			datum.Fisher[i].Measures[j] /= sum
+	}
+	for i := range datum.Fisher {
+		for j, v := range datum.Fisher[i].Measures {
+			datum.Fisher[i].Measures[j] = 2 * math.Pi * (v - min[j]) / (max[j] - min[j])
 		}
 	}
 	target := make([][][]float64, 3)
@@ -231,7 +240,7 @@ func IRIS(seed int) {
 			for k, class := range target {
 				for _, v := range class {
 					for j := range inputs.Data {
-						inputs.Data[j] = cmplx.Rect(v[j], n.Theta[j])
+						inputs.Data[j] = cmplx.Rect(1, v[j]) //cmplx.Rect(v[j], n.Theta[j])
 					}
 					l2 := n.Infer(inputs)
 					v := l2.Data[0]
@@ -251,7 +260,7 @@ func IRIS(seed int) {
 			fitness /= float64(points * len(target))
 			samples = append(samples, fitness)
 			stats[0].Add(float64(fitness))
-			if fitness <= .01 {
+			if fitness <= .0001 {
 				fmt.Println(i, fitness)
 				found = true
 				network = &n
@@ -272,7 +281,7 @@ func IRIS(seed int) {
 				inputs.Data = append(inputs.Data, 0)
 			}
 			for j := range inputs.Data {
-				inputs.Data[j] = cmplx.Rect(value.Measures[j], network.Theta[j])
+				inputs.Data[j] = cmplx.Rect(1, value.Measures[j]) //cmplx.Rect(value.Measures[j], network.Theta[j])
 			}
 			l2 := network.Infer(inputs)
 			index := 0
