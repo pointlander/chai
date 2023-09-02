@@ -35,6 +35,12 @@ func (a AutoencoderNetwork) Infer(inputs ComplexMatrix) (output ComplexMatrix) {
 	return l2
 }
 
+// Middle layer
+func (a AutoencoderNetwork) Middle(inputs ComplexMatrix) (output ComplexMatrix) {
+	l1 := ComplexAdd(ComplexMul(a.W1, inputs), a.B1)
+	return l1
+}
+
 // Autoencoder is a neural network trained on the iris dataset
 func Autoencoder(seed int) {
 	cpus := runtime.NumCPU()
@@ -85,7 +91,7 @@ func Autoencoder(seed int) {
 		StdDev float64
 	}
 	const pop = 256
-	const cols, rows = 4, 4
+	const cols, rows = 4, 1
 
 	type Genome struct {
 		Theta   []Distribution
@@ -113,11 +119,11 @@ func Autoencoder(seed int) {
 		for i := 0; i < 2*rows; i++ {
 			b1 = append(b1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		w2 := make([]Distribution, 0, 2*2*rows*1)
+		w2 := make([]Distribution, 0, 2*2*rows*cols)
 		for i := 0; i < 2*rows*3; i++ {
 			w2 = append(w2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		b2 := make([]Distribution, 0, 2*1)
+		b2 := make([]Distribution, 0, 2*cols)
 		for i := 0; i < 2*1; i++ {
 			b2 = append(b2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
@@ -196,7 +202,7 @@ func Autoencoder(seed int) {
 				n.B1.Data = append(n.B1.Data, v)*/
 				n.B1.Data = append(n.B1.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
 			}
-			n.W2 = NewComplexMatrix(0, 2*rows, 1)
+			n.W2 = NewComplexMatrix(0, 2*rows, cols)
 			for i := 0; i < len(g.W2); i += 2 {
 				a := g.W2[i]
 				b := g.W2[i+1]
@@ -214,7 +220,7 @@ func Autoencoder(seed int) {
 				n.W2.Data = append(n.W2.Data, v)*/
 				n.W2.Data = append(n.W2.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
 			}
-			n.B2 = NewComplexMatrix(0, 1, 1)
+			n.B2 = NewComplexMatrix(0, 1, cols)
 			for i := 0; i < len(g.B2); i += 2 {
 				x := g.B2[i]
 				y := g.B2[i+1]
@@ -237,13 +243,21 @@ func Autoencoder(seed int) {
 				inputs.Data = append(inputs.Data, 0)
 			}
 			fitness := 0.0
-			for k, class := range target {
+			for _, class := range target {
 				for _, v := range class {
 					for j := range inputs.Data {
 						inputs.Data[j] = cmplx.Rect(1, v[j]) //cmplx.Rect(v[j], n.Theta[j])
 					}
 					l2 := n.Infer(inputs)
-					v := l2.Data[0]
+					for j, vv := range l2.Data {
+						x := v[j]
+						if x > math.Pi {
+							x -= 2 * math.Pi
+						}
+						fit := cmplx.Phase(vv) - x
+						fitness += fit * fit
+					}
+					/*v := l2.Data[0]
 					switch k {
 					case 0:
 						fit := cmplx.Phase(v) - math.Pi/4
@@ -254,13 +268,13 @@ func Autoencoder(seed int) {
 					case 2:
 						fit := cmplx.Phase(v) - 3*math.Pi/2 + 2*math.Pi
 						fitness += fit * fit
-					}
+					}*/
 				}
 			}
 			fitness /= float64(points * len(target))
 			samples = append(samples, fitness)
 			stats[0].Add(float64(fitness))
-			if fitness <= .0001 {
+			if fitness <= 1 {
 				fmt.Println(i, fitness)
 				found = true
 				network = &n
@@ -275,7 +289,7 @@ func Autoencoder(seed int) {
 	}
 	test := func(network *AutoencoderNetwork) {
 		correct, incorrect := 0, 0
-		for _, value := range datum.Fisher {
+		for k, value := range datum.Fisher {
 			inputs := NewComplexMatrix(0, cols, 1)
 			for i := 0; i < cols; i++ {
 				inputs.Data = append(inputs.Data, 0)
@@ -283,22 +297,13 @@ func Autoencoder(seed int) {
 			for j := range inputs.Data {
 				inputs.Data[j] = cmplx.Rect(1, value.Measures[j]) //cmplx.Rect(value.Measures[j], network.Theta[j])
 			}
-			l2 := network.Infer(inputs)
-			index := 0
+			l2 := network.Middle(inputs)
 			v := l2.Data[0]
-			if real(v) > 0 && imag(v) > 0 {
-				index = 0
-			} else if real(v) < 0 && imag(v) > 0 {
-				index = 1
-			} else if (real(v) < 0 && imag(v) < 0) || (real(v) > 0 && imag(v) < 0) {
-				index = 2
+			x := cmplx.Phase(v)
+			if x < 0 {
+				x += 2 * math.Pi
 			}
-			if index != iris.Labels[value.Label] {
-				fmt.Println(value.Label)
-				incorrect++
-			} else {
-				correct++
-			}
+			fmt.Println(k, x, value.Label)
 		}
 		fmt.Println("correct", correct, float64(correct)/float64(correct+incorrect))
 		fmt.Println("incorrect", incorrect, float64(incorrect)/float64(correct+incorrect))
