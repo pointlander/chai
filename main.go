@@ -22,6 +22,8 @@ import (
 )
 
 var (
+	// FlagIRIS is the iris data set trained on a quantum neural network
+	FlagIRIS = flag.Bool("iris", false, "iris data set")
 	// FlagQRNN is a quantum RNN
 	FlagQRNN = flag.Bool("qrnn", false, "quantum RNN")
 	// FlagPOW is the proof of work mode
@@ -84,6 +86,11 @@ func (s *Stat) Normalize() {
 
 func main() {
 	flag.Parse()
+
+	if *FlagIRIS {
+		IRIS(1)
+		return
+	}
 
 	if *FlagQRNN {
 		QRNN(1)
@@ -160,7 +167,7 @@ func main() {
 		return
 	}
 
-	IRIS(1)
+	Autoencoder(1)
 
 	rnd := rand.New(rand.NewSource(1))
 	samples := make(plotter.Values, 0, 8)

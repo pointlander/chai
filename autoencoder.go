@@ -19,8 +19,8 @@ import (
 	"gonum.org/v1/plot/vg"
 )
 
-// Network is a neural network
-type Network struct {
+// Autoencoder is a neural network
+type AutoencoderNetwork struct {
 	Theta []float64
 	W1    ComplexMatrix
 	B1    ComplexMatrix
@@ -29,14 +29,14 @@ type Network struct {
 }
 
 // Infer computes the output of the network
-func (n Network) Infer(inputs ComplexMatrix) (output ComplexMatrix) {
-	l1 := EverettActivation(ComplexAdd(ComplexMul(n.W1, inputs), n.B1))
-	l2 := ComplexAdd(ComplexMul(n.W2, l1), n.B2)
+func (a AutoencoderNetwork) Infer(inputs ComplexMatrix) (output ComplexMatrix) {
+	l1 := EverettActivation(ComplexAdd(ComplexMul(a.W1, inputs), a.B1))
+	l2 := ComplexAdd(ComplexMul(a.W2, l1), a.B2)
 	return l2
 }
 
-// IRIS implements a neural network for the iris dataset
-func IRIS(seed int) {
+// Autoencoder is a neural network trained on the iris dataset
+func Autoencoder(seed int) {
 	cpus := runtime.NumCPU()
 	rng := rand.New(rand.NewSource(int64(seed)))
 	datum, err := iris.Load()
@@ -151,11 +151,11 @@ func IRIS(seed int) {
 		}
 	}
 
-	sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, stats []Stat, network *Network, found bool) {
+	sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, stats []Stat, network *AutoencoderNetwork, found bool) {
 		stats = make([]Stat, 1)
 		scale := 128
 		for i := 0; i < scale; i++ {
-			n := Network{}
+			n := AutoencoderNetwork{}
 			n.Theta = make([]float64, 0, 4)
 			for i := 0; i < 4; i++ {
 				n.Theta = append(n.Theta, rng.NormFloat64()*g.Theta[i].StdDev+g.Theta[i].Mean)
@@ -273,7 +273,7 @@ func IRIS(seed int) {
 		}
 		return samples, stats, network, found
 	}
-	test := func(network *Network) {
+	test := func(network *AutoencoderNetwork) {
 		correct, incorrect := 0, 0
 		for _, value := range datum.Fisher {
 			inputs := NewComplexMatrix(0, cols, 1)
