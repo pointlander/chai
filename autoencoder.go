@@ -69,7 +69,7 @@ func Autoencoder(seed int) {
 		}
 	}
 	target := make([][][]float64, 3)
-	const points = 3
+	const points = 50
 	target[0] = [][]float64{}
 	for i := 0; i < points; i++ {
 		target[0] = append(target[0], datum.Fisher[i].Measures)
@@ -243,6 +243,7 @@ func Autoencoder(seed int) {
 				inputs.Data = append(inputs.Data, 0)
 			}
 			fitness := 0.0
+			phases := NewMatrix(0, points*len(target), 1)
 			for _, class := range target {
 				for _, v := range class {
 					for j := range inputs.Data {
@@ -257,6 +258,8 @@ func Autoencoder(seed int) {
 						fit := cmplx.Phase(vv) - x
 						fitness += fit * fit
 					}
+					middle := n.Middle(inputs)
+					phases.Data = append(phases.Data, cmplx.Phase(middle.Data[0]))
 					/*v := l2.Data[0]
 					switch k {
 					case 0:
@@ -271,10 +274,17 @@ func Autoencoder(seed int) {
 					}*/
 				}
 			}
+			entropy := SelfEntropy(phases, phases, phases)
+			sum := 0.0
+			for _, v := range entropy {
+				sum += v
+			}
+			sum = -sum / float64(len(entropy))
 			fitness /= float64(points * len(target))
+			fitness += sum
 			samples = append(samples, fitness)
 			stats[0].Add(float64(fitness))
-			if fitness <= 1 {
+			if fitness <= 7.5 {
 				fmt.Println(i, fitness)
 				found = true
 				network = &n
