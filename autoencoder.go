@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	cols, rows = 4, 4
+	cols, rows, middle = 4, 4, 1
 )
 
 // Autoencoder is a neural network
@@ -64,12 +64,11 @@ func (a AutoencoderNetwork) Test(fisher []iris.Iris) {
 			inputs.Data[j] = cmplx.Rect(1, value.Measures[j])
 		}
 		l2 := a.Middle(inputs)
-		v := l2.Data[0]
-		x := cmplx.Phase(v)
-		if x < 0 {
-			x += 2 * math.Pi
+		fmt.Printf("%d %s", k, value.Label)
+		for _, v := range l2.Data {
+			fmt.Printf(" %f", cmplx.Phase(v))
 		}
-		fmt.Println(k, x, value.Label)
+		fmt.Println()
 	}
 	//fmt.Println("correct", correct, float64(correct)/float64(correct+incorrect))
 	//fmt.Println("incorrect", incorrect, float64(incorrect)/float64(correct+incorrect))
@@ -112,16 +111,16 @@ func NewGenome(rng *rand.Rand) Genome {
 	for i := 0; i < 2*rows; i++ {
 		b1 = append(b1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 	}
-	w2 := make([]Distribution, 0, 2*2*rows*1)
-	for i := 0; i < 2*2*rows*1; i++ {
+	w2 := make([]Distribution, 0, 2*2*rows*middle)
+	for i := 0; i < 2*2*rows*middle; i++ {
 		w2 = append(w2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 	}
-	b2 := make([]Distribution, 0, 2*1)
-	for i := 0; i < 2*1; i++ {
+	b2 := make([]Distribution, 0, 2*middle)
+	for i := 0; i < 2*middle; i++ {
 		b2 = append(b2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 	}
-	w3 := make([]Distribution, 0, 2*2*1*cols)
-	for i := 0; i < 2*2*1*cols; i++ {
+	w3 := make([]Distribution, 0, 2*2*middle*cols)
+	for i := 0; i < 2*2*middle*cols; i++ {
 		w3 = append(w3, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 	}
 	b3 := make([]Distribution, 0, 2*cols)
@@ -202,19 +201,19 @@ func (g *Genome) SampleAutoencoder(rng *rand.Rand) (network AutoencoderNetwork) 
 		y := g.B1[i+1]
 		n.B1.Data = append(n.B1.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
 	}
-	n.W2 = NewComplexMatrix(0, 2*cols, 1)
+	n.W2 = NewComplexMatrix(0, 2*cols, middle)
 	for i := 0; i < len(g.W2); i += 2 {
 		a := g.W2[i]
 		b := g.W2[i+1]
 		n.W2.Data = append(n.W2.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
 	}
-	n.B2 = NewComplexMatrix(0, 1, 1)
+	n.B2 = NewComplexMatrix(0, 1, middle)
 	for i := 0; i < len(g.B2); i += 2 {
 		x := g.B2[i]
 		y := g.B2[i+1]
 		n.B2.Data = append(n.B2.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
 	}
-	n.W3 = NewComplexMatrix(0, 2*1, cols)
+	n.W3 = NewComplexMatrix(0, 2*middle, cols)
 	for i := 0; i < len(g.W3); i += 2 {
 		a := g.W3[i]
 		b := g.W3[i+1]
@@ -302,7 +301,7 @@ func Autoencoder(seed int) {
 				inputs.Data = append(inputs.Data, 0)
 			}
 			fitness := 0.0
-			phases := NewMatrix(0, points*len(target), 1)
+			phases := NewMatrix(0, middle, points*len(target))
 			for _, class := range target {
 				for _, v := range class {
 					for j := range inputs.Data {
@@ -318,7 +317,9 @@ func Autoencoder(seed int) {
 						fitness += fit * fit
 					}
 					middle := n.Middle(inputs)
-					phases.Data = append(phases.Data, cmplx.Phase(middle.Data[0]))
+					for _, vv := range middle.Data {
+						phases.Data = append(phases.Data, cmplx.Phase(vv))
+					}
 				}
 			}
 			entropy := SelfEntropy(phases, phases, phases)
