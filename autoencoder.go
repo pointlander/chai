@@ -26,19 +26,26 @@ type AutoencoderNetwork struct {
 	B1    ComplexMatrix
 	W2    ComplexMatrix
 	B2    ComplexMatrix
+	W3    ComplexMatrix
+	B3    ComplexMatrix
+	W4    ComplexMatrix
+	B4    ComplexMatrix
 }
 
 // Infer computes the output of the network
 func (a AutoencoderNetwork) Infer(inputs ComplexMatrix) (output ComplexMatrix) {
 	l1 := EverettActivation(ComplexAdd(ComplexMul(a.W1, inputs), a.B1))
-	l2 := ComplexAdd(ComplexMul(a.W2, l1), a.B2)
-	return l2
+	l2 := EverettActivation(ComplexAdd(ComplexMul(a.W2, l1), a.B2))
+	l3 := EverettActivation(ComplexAdd(ComplexMul(a.W3, l2), a.B3))
+	l4 := ComplexAdd(ComplexMul(a.W4, l3), a.B4)
+	return l4
 }
 
 // Middle layer
 func (a AutoencoderNetwork) Middle(inputs ComplexMatrix) (output ComplexMatrix) {
-	l1 := ComplexAdd(ComplexMul(a.W1, inputs), a.B1)
-	return l1
+	l1 := EverettActivation(ComplexAdd(ComplexMul(a.W1, inputs), a.B1))
+	l2 := ComplexAdd(ComplexMul(a.W2, l1), a.B2)
+	return l2
 }
 
 // Autoencoder is a neural network trained on the iris dataset
@@ -91,7 +98,7 @@ func Autoencoder(seed int) {
 		StdDev float64
 	}
 	const pop = 256
-	const cols, rows = 4, 1
+	const cols, rows = 4, 4
 
 	type Genome struct {
 		Theta   []Distribution
@@ -99,6 +106,10 @@ func Autoencoder(seed int) {
 		B1      []Distribution
 		W2      []Distribution
 		B2      []Distribution
+		W3      []Distribution
+		B3      []Distribution
+		W4      []Distribution
+		B4      []Distribution
 		Fitness Stat
 		Rank    float64
 		Cached  bool
@@ -119,13 +130,29 @@ func Autoencoder(seed int) {
 		for i := 0; i < 2*rows; i++ {
 			b1 = append(b1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		w2 := make([]Distribution, 0, 2*2*rows*cols)
-		for i := 0; i < 2*rows*3; i++ {
+		w2 := make([]Distribution, 0, 2*2*rows*1)
+		for i := 0; i < 2*2*rows*1; i++ {
 			w2 = append(w2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
-		b2 := make([]Distribution, 0, 2*cols)
+		b2 := make([]Distribution, 0, 2*1)
 		for i := 0; i < 2*1; i++ {
 			b2 = append(b2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+		}
+		w3 := make([]Distribution, 0, 2*2*1*cols)
+		for i := 0; i < 2*2*1*cols; i++ {
+			w3 = append(w3, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+		}
+		b3 := make([]Distribution, 0, 2*cols)
+		for i := 0; i < 2*cols; i++ {
+			b3 = append(b3, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+		}
+		w4 := make([]Distribution, 0, 2*2*cols*cols)
+		for i := 0; i < 2*2*cols*cols; i++ {
+			w4 = append(w4, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+		}
+		b4 := make([]Distribution, 0, 2*cols)
+		for i := 0; i < 2*cols; i++ {
+			b4 = append(b4, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
 		}
 		g := Genome{
 			Theta: theta,
@@ -133,6 +160,10 @@ func Autoencoder(seed int) {
 			B1:    b1,
 			W2:    w2,
 			B2:    b2,
+			W3:    w3,
+			B3:    b3,
+			W4:    w4,
+			B4:    b4,
 		}
 		pool = append(pool, g)
 	}
@@ -148,12 +179,24 @@ func Autoencoder(seed int) {
 		copy(w2, g.W2)
 		b2 := make([]Distribution, len(g.B2))
 		copy(b2, g.B2)
+		w3 := make([]Distribution, len(g.W3))
+		copy(w3, g.W3)
+		b3 := make([]Distribution, len(g.B3))
+		copy(b3, g.B3)
+		w4 := make([]Distribution, len(g.W4))
+		copy(w4, g.W4)
+		b4 := make([]Distribution, len(g.B4))
+		copy(b4, g.B4)
 		return Genome{
 			Theta: theta,
 			W1:    w1,
 			B1:    b1,
 			W2:    w2,
 			B2:    b2,
+			W3:    w3,
+			B3:    b3,
+			W4:    w4,
+			B4:    b4,
 		}
 	}
 
@@ -170,73 +213,49 @@ func Autoencoder(seed int) {
 			for i := 0; i < len(g.W1); i += 2 {
 				a := g.W1[i]
 				b := g.W1[i+1]
-				/*var v complex128
-				if rng.NormFloat64()*a.StdDev > a.Mean {
-					v = 1
-				} else {
-					v = -1
-				}
-				if rng.NormFloat64()*b.StdDev > b.Mean {
-					v += 1i
-				} else {
-					v += -1i
-				}
-				n.W1.Data = append(n.W1.Data, v)*/
 				n.W1.Data = append(n.W1.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
 			}
 			n.B1 = NewComplexMatrix(0, 1, rows)
 			for i := 0; i < len(g.B1); i += 2 {
 				x := g.B1[i]
 				y := g.B1[i+1]
-				/*var v complex128
-				if rng.NormFloat64()*x.StdDev > x.Mean {
-					v = 1
-				} else {
-					v = -1
-				}
-				if rng.NormFloat64()*y.StdDev > y.Mean {
-					v += 1i
-				} else {
-					v += -1i
-				}
-				n.B1.Data = append(n.B1.Data, v)*/
 				n.B1.Data = append(n.B1.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
 			}
-			n.W2 = NewComplexMatrix(0, 2*rows, cols)
+			n.W2 = NewComplexMatrix(0, 2*cols, 1)
 			for i := 0; i < len(g.W2); i += 2 {
 				a := g.W2[i]
 				b := g.W2[i+1]
-				/*var v complex128
-				if rng.NormFloat64()*a.StdDev > a.Mean {
-					v = 1
-				} else {
-					v = -1
-				}
-				if rng.NormFloat64()*b.StdDev > b.Mean {
-					v += 1i
-				} else {
-					v += -1i
-				}
-				n.W2.Data = append(n.W2.Data, v)*/
 				n.W2.Data = append(n.W2.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
 			}
-			n.B2 = NewComplexMatrix(0, 1, cols)
+			n.B2 = NewComplexMatrix(0, 1, 1)
 			for i := 0; i < len(g.B2); i += 2 {
 				x := g.B2[i]
 				y := g.B2[i+1]
-				/*var v complex128
-				if rng.NormFloat64()*x.StdDev > x.Mean {
-					v = 1
-				} else {
-					v = -1
-				}
-				if rng.NormFloat64()*y.StdDev > y.Mean {
-					v += 1i
-				} else {
-					v += -1i
-				}
-				n.B2.Data = append(n.B2.Data, v)*/
 				n.B2.Data = append(n.B2.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
+			}
+			n.W3 = NewComplexMatrix(0, 2*1, cols)
+			for i := 0; i < len(g.W3); i += 2 {
+				a := g.W3[i]
+				b := g.W3[i+1]
+				n.W3.Data = append(n.W3.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
+			}
+			n.B3 = NewComplexMatrix(0, 1, cols)
+			for i := 0; i < len(g.B3); i += 2 {
+				x := g.B3[i]
+				y := g.B3[i+1]
+				n.B3.Data = append(n.B3.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
+			}
+			n.W4 = NewComplexMatrix(0, 2*cols, rows)
+			for i := 0; i < len(g.W4); i += 2 {
+				a := g.W4[i]
+				b := g.W4[i+1]
+				n.W4.Data = append(n.W4.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
+			}
+			n.B4 = NewComplexMatrix(0, 1, rows)
+			for i := 0; i < len(g.B4); i += 2 {
+				x := g.B4[i]
+				y := g.B4[i+1]
+				n.B4.Data = append(n.B4.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
 			}
 			inputs := NewComplexMatrix(0, cols, 1)
 			for i := 0; i < cols; i++ {
@@ -247,7 +266,7 @@ func Autoencoder(seed int) {
 			for _, class := range target {
 				for _, v := range class {
 					for j := range inputs.Data {
-						inputs.Data[j] = cmplx.Rect(1, v[j]) //cmplx.Rect(v[j], n.Theta[j])
+						inputs.Data[j] = cmplx.Rect(1, v[j])
 					}
 					l2 := n.Infer(inputs)
 					for j, vv := range l2.Data {
@@ -260,18 +279,6 @@ func Autoencoder(seed int) {
 					}
 					middle := n.Middle(inputs)
 					phases.Data = append(phases.Data, cmplx.Phase(middle.Data[0]))
-					/*v := l2.Data[0]
-					switch k {
-					case 0:
-						fit := cmplx.Phase(v) - math.Pi/4
-						fitness += fit * fit
-					case 1:
-						fit := cmplx.Phase(v) - 3*math.Pi/4
-						fitness += fit * fit
-					case 2:
-						fit := cmplx.Phase(v) - 3*math.Pi/2 + 2*math.Pi
-						fitness += fit * fit
-					}*/
 				}
 			}
 			entropy := SelfEntropy(phases, phases, phases)
@@ -284,10 +291,10 @@ func Autoencoder(seed int) {
 			fitness += sum
 			samples = append(samples, fitness)
 			stats[0].Add(float64(fitness))
+			network = &n
 			if fitness <= 7.5 {
 				fmt.Println(i, fitness)
 				found = true
-				network = &n
 				break
 			}
 		}
@@ -305,7 +312,7 @@ func Autoencoder(seed int) {
 				inputs.Data = append(inputs.Data, 0)
 			}
 			for j := range inputs.Data {
-				inputs.Data[j] = cmplx.Rect(1, value.Measures[j]) //cmplx.Rect(value.Measures[j], network.Theta[j])
+				inputs.Data[j] = cmplx.Rect(1, value.Measures[j])
 			}
 			l2 := network.Middle(inputs)
 			v := l2.Data[0]
@@ -334,7 +341,7 @@ func Autoencoder(seed int) {
 	}
 
 	p := plot.New()
-	p.Title.Text = "iris"
+	p.Title.Text = "autoencoder"
 
 	histogram, err := plotter.NewHist(d, 10)
 	if err != nil {
@@ -342,7 +349,7 @@ func Autoencoder(seed int) {
 	}
 	p.Add(histogram)
 
-	err = p.Save(8*vg.Inch, 8*vg.Inch, "iris.png")
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "autoencoder.png")
 	if err != nil {
 		panic(err)
 	}
@@ -413,17 +420,16 @@ Search:
 			g.B2[rng.Intn(len(g.B2))].StdDev += rng.NormFloat64()
 			pool = append(pool, g)
 		}
-		done := make(chan bool, 8)
+		done := make(chan *AutoencoderNetwork, 8)
 		i, flight := 0, 0
 		task := func(rng *rand.Rand, i int) {
 			_, stats, network, found := sample(rng, &pool[i])
-			if found {
-				test(network)
-				done <- true
+			if found || generation > 50 {
+				done <- network
 			}
 			pool[i].Fitness = stats[0]
 			pool[i].Cached = true
-			done <- false
+			done <- nil
 		}
 		for i < len(pool) && flight < cpus {
 			if pool[i].Cached {
@@ -445,7 +451,8 @@ Search:
 				continue
 			}
 
-			if <-done {
+			if network := <-done; network != nil {
+				test(network)
 				break Search
 			}
 			flight--
@@ -460,7 +467,11 @@ Search:
 			flight++
 		}
 		for flight > 0 {
-			<-done
+			network := <-done
+			if network != nil {
+				test(network)
+				break
+			}
 			flight--
 		}
 		generation++
