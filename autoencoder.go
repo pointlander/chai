@@ -19,6 +19,10 @@ import (
 	"gonum.org/v1/plot/vg"
 )
 
+const (
+	cols, rows = 4, 4
+)
+
 // Autoencoder is a neural network
 type AutoencoderNetwork struct {
 	Theta []float64
@@ -46,6 +50,195 @@ func (a AutoencoderNetwork) Middle(inputs ComplexMatrix) (output ComplexMatrix) 
 	l1 := EverettActivation(ComplexAdd(ComplexMul(a.W1, inputs), a.B1))
 	l2 := ComplexAdd(ComplexMul(a.W2, l1), a.B2)
 	return l2
+}
+
+// Test tests the autoencoder
+func (a AutoencoderNetwork) Test(fisher []iris.Iris) {
+	//correct, incorrect := 0, 0
+	for k, value := range fisher {
+		inputs := NewComplexMatrix(0, cols, 1)
+		for i := 0; i < cols; i++ {
+			inputs.Data = append(inputs.Data, 0)
+		}
+		for j := range inputs.Data {
+			inputs.Data[j] = cmplx.Rect(1, value.Measures[j])
+		}
+		l2 := a.Middle(inputs)
+		v := l2.Data[0]
+		x := cmplx.Phase(v)
+		if x < 0 {
+			x += 2 * math.Pi
+		}
+		fmt.Println(k, x, value.Label)
+	}
+	//fmt.Println("correct", correct, float64(correct)/float64(correct+incorrect))
+	//fmt.Println("incorrect", incorrect, float64(incorrect)/float64(correct+incorrect))
+}
+
+// Distribution is a distribution
+type Distribution struct {
+	Mean   float64
+	StdDev float64
+}
+
+// Genome is a genome
+type Genome struct {
+	Theta   []Distribution
+	W1      []Distribution
+	B1      []Distribution
+	W2      []Distribution
+	B2      []Distribution
+	W3      []Distribution
+	B3      []Distribution
+	W4      []Distribution
+	B4      []Distribution
+	Fitness Stat
+	Rank    float64
+	Cached  bool
+}
+
+// NewGenome creates a new genome
+func NewGenome(rng *rand.Rand) Genome {
+	factor := math.Sqrt(2.0 / float64(cols))
+	theta := make([]Distribution, 0, 4)
+	for i := 0; i < 4; i++ {
+		theta = append(theta, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+	}
+	w1 := make([]Distribution, 0, 2*cols*rows)
+	for i := 0; i < 2*cols*rows; i++ {
+		w1 = append(w1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+	}
+	b1 := make([]Distribution, 0, 2*rows)
+	for i := 0; i < 2*rows; i++ {
+		b1 = append(b1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+	}
+	w2 := make([]Distribution, 0, 2*2*rows*1)
+	for i := 0; i < 2*2*rows*1; i++ {
+		w2 = append(w2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+	}
+	b2 := make([]Distribution, 0, 2*1)
+	for i := 0; i < 2*1; i++ {
+		b2 = append(b2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+	}
+	w3 := make([]Distribution, 0, 2*2*1*cols)
+	for i := 0; i < 2*2*1*cols; i++ {
+		w3 = append(w3, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+	}
+	b3 := make([]Distribution, 0, 2*cols)
+	for i := 0; i < 2*cols; i++ {
+		b3 = append(b3, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+	}
+	w4 := make([]Distribution, 0, 2*2*cols*cols)
+	for i := 0; i < 2*2*cols*cols; i++ {
+		w4 = append(w4, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+	}
+	b4 := make([]Distribution, 0, 2*cols)
+	for i := 0; i < 2*cols; i++ {
+		b4 = append(b4, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
+	}
+	g := Genome{
+		Theta: theta,
+		W1:    w1,
+		B1:    b1,
+		W2:    w2,
+		B2:    b2,
+		W3:    w3,
+		B3:    b3,
+		W4:    w4,
+		B4:    b4,
+	}
+	return g
+}
+
+// Copy copies a genome
+func (g *Genome) Copy() Genome {
+	theta := make([]Distribution, len(g.Theta))
+	copy(theta, g.Theta)
+	w1 := make([]Distribution, len(g.W1))
+	copy(w1, g.W1)
+	b1 := make([]Distribution, len(g.B1))
+	copy(b1, g.B1)
+	w2 := make([]Distribution, len(g.W2))
+	copy(w2, g.W2)
+	b2 := make([]Distribution, len(g.B2))
+	copy(b2, g.B2)
+	w3 := make([]Distribution, len(g.W3))
+	copy(w3, g.W3)
+	b3 := make([]Distribution, len(g.B3))
+	copy(b3, g.B3)
+	w4 := make([]Distribution, len(g.W4))
+	copy(w4, g.W4)
+	b4 := make([]Distribution, len(g.B4))
+	copy(b4, g.B4)
+	return Genome{
+		Theta: theta,
+		W1:    w1,
+		B1:    b1,
+		W2:    w2,
+		B2:    b2,
+		W3:    w3,
+		B3:    b3,
+		W4:    w4,
+		B4:    b4,
+	}
+}
+
+// SampleAutoencoder samples an autoencoder
+func (g *Genome) SampleAutoencoder(rng *rand.Rand) (network AutoencoderNetwork) {
+	n := AutoencoderNetwork{}
+	n.Theta = make([]float64, 0, 4)
+	for i := 0; i < 4; i++ {
+		n.Theta = append(n.Theta, rng.NormFloat64()*g.Theta[i].StdDev+g.Theta[i].Mean)
+	}
+	n.W1 = NewComplexMatrix(0, cols, rows)
+	for i := 0; i < len(g.W1); i += 2 {
+		a := g.W1[i]
+		b := g.W1[i+1]
+		n.W1.Data = append(n.W1.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
+	}
+	n.B1 = NewComplexMatrix(0, 1, rows)
+	for i := 0; i < len(g.B1); i += 2 {
+		x := g.B1[i]
+		y := g.B1[i+1]
+		n.B1.Data = append(n.B1.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
+	}
+	n.W2 = NewComplexMatrix(0, 2*cols, 1)
+	for i := 0; i < len(g.W2); i += 2 {
+		a := g.W2[i]
+		b := g.W2[i+1]
+		n.W2.Data = append(n.W2.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
+	}
+	n.B2 = NewComplexMatrix(0, 1, 1)
+	for i := 0; i < len(g.B2); i += 2 {
+		x := g.B2[i]
+		y := g.B2[i+1]
+		n.B2.Data = append(n.B2.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
+	}
+	n.W3 = NewComplexMatrix(0, 2*1, cols)
+	for i := 0; i < len(g.W3); i += 2 {
+		a := g.W3[i]
+		b := g.W3[i+1]
+		n.W3.Data = append(n.W3.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
+	}
+	n.B3 = NewComplexMatrix(0, 1, cols)
+	for i := 0; i < len(g.B3); i += 2 {
+		x := g.B3[i]
+		y := g.B3[i+1]
+		n.B3.Data = append(n.B3.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
+	}
+	n.W4 = NewComplexMatrix(0, 2*cols, rows)
+	for i := 0; i < len(g.W4); i += 2 {
+		a := g.W4[i]
+		b := g.W4[i+1]
+		n.W4.Data = append(n.W4.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
+	}
+	n.B4 = NewComplexMatrix(0, 1, rows)
+	for i := 0; i < len(g.B4); i += 2 {
+		x := g.B4[i]
+		y := g.B4[i+1]
+		n.B4.Data = append(n.B4.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
+	}
+	return n
 }
 
 // Autoencoder is a neural network trained on the iris dataset
@@ -93,170 +286,17 @@ func Autoencoder(seed int) {
 	fmt.Println(datum.Fisher[50].Label, datum.Fisher[51].Label)
 	fmt.Println(datum.Fisher[100].Label, datum.Fisher[101].Label)
 
-	type Distribution struct {
-		Mean   float64
-		StdDev float64
-	}
 	const pop = 256
-	const cols, rows = 4, 4
-
-	type Genome struct {
-		Theta   []Distribution
-		W1      []Distribution
-		B1      []Distribution
-		W2      []Distribution
-		B2      []Distribution
-		W3      []Distribution
-		B3      []Distribution
-		W4      []Distribution
-		B4      []Distribution
-		Fitness Stat
-		Rank    float64
-		Cached  bool
-	}
 	pool := make([]Genome, 0, pop)
-
-	factor := math.Sqrt(2.0 / float64(cols))
 	for i := 0; i < pop; i++ {
-		theta := make([]Distribution, 0, 4)
-		for i := 0; i < 4; i++ {
-			theta = append(theta, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
-		}
-		w1 := make([]Distribution, 0, 2*cols*rows)
-		for i := 0; i < 2*cols*rows; i++ {
-			w1 = append(w1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
-		}
-		b1 := make([]Distribution, 0, 2*rows)
-		for i := 0; i < 2*rows; i++ {
-			b1 = append(b1, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
-		}
-		w2 := make([]Distribution, 0, 2*2*rows*1)
-		for i := 0; i < 2*2*rows*1; i++ {
-			w2 = append(w2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
-		}
-		b2 := make([]Distribution, 0, 2*1)
-		for i := 0; i < 2*1; i++ {
-			b2 = append(b2, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
-		}
-		w3 := make([]Distribution, 0, 2*2*1*cols)
-		for i := 0; i < 2*2*1*cols; i++ {
-			w3 = append(w3, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
-		}
-		b3 := make([]Distribution, 0, 2*cols)
-		for i := 0; i < 2*cols; i++ {
-			b3 = append(b3, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
-		}
-		w4 := make([]Distribution, 0, 2*2*cols*cols)
-		for i := 0; i < 2*2*cols*cols; i++ {
-			w4 = append(w4, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
-		}
-		b4 := make([]Distribution, 0, 2*cols)
-		for i := 0; i < 2*cols; i++ {
-			b4 = append(b4, Distribution{Mean: factor * rng.NormFloat64(), StdDev: factor * rng.NormFloat64()})
-		}
-		g := Genome{
-			Theta: theta,
-			W1:    w1,
-			B1:    b1,
-			W2:    w2,
-			B2:    b2,
-			W3:    w3,
-			B3:    b3,
-			W4:    w4,
-			B4:    b4,
-		}
-		pool = append(pool, g)
-	}
-
-	copy := func(g *Genome) Genome {
-		theta := make([]Distribution, len(g.Theta))
-		copy(theta, g.Theta)
-		w1 := make([]Distribution, len(g.W1))
-		copy(w1, g.W1)
-		b1 := make([]Distribution, len(g.B1))
-		copy(b1, g.B1)
-		w2 := make([]Distribution, len(g.W2))
-		copy(w2, g.W2)
-		b2 := make([]Distribution, len(g.B2))
-		copy(b2, g.B2)
-		w3 := make([]Distribution, len(g.W3))
-		copy(w3, g.W3)
-		b3 := make([]Distribution, len(g.B3))
-		copy(b3, g.B3)
-		w4 := make([]Distribution, len(g.W4))
-		copy(w4, g.W4)
-		b4 := make([]Distribution, len(g.B4))
-		copy(b4, g.B4)
-		return Genome{
-			Theta: theta,
-			W1:    w1,
-			B1:    b1,
-			W2:    w2,
-			B2:    b2,
-			W3:    w3,
-			B3:    b3,
-			W4:    w4,
-			B4:    b4,
-		}
+		pool = append(pool, NewGenome(rng))
 	}
 
 	sample := func(rng *rand.Rand, g *Genome) (samples plotter.Values, stats []Stat, network *AutoencoderNetwork, found bool) {
 		stats = make([]Stat, 1)
 		scale := 128
 		for i := 0; i < scale; i++ {
-			n := AutoencoderNetwork{}
-			n.Theta = make([]float64, 0, 4)
-			for i := 0; i < 4; i++ {
-				n.Theta = append(n.Theta, rng.NormFloat64()*g.Theta[i].StdDev+g.Theta[i].Mean)
-			}
-			n.W1 = NewComplexMatrix(0, cols, rows)
-			for i := 0; i < len(g.W1); i += 2 {
-				a := g.W1[i]
-				b := g.W1[i+1]
-				n.W1.Data = append(n.W1.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
-			}
-			n.B1 = NewComplexMatrix(0, 1, rows)
-			for i := 0; i < len(g.B1); i += 2 {
-				x := g.B1[i]
-				y := g.B1[i+1]
-				n.B1.Data = append(n.B1.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
-			}
-			n.W2 = NewComplexMatrix(0, 2*cols, 1)
-			for i := 0; i < len(g.W2); i += 2 {
-				a := g.W2[i]
-				b := g.W2[i+1]
-				n.W2.Data = append(n.W2.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
-			}
-			n.B2 = NewComplexMatrix(0, 1, 1)
-			for i := 0; i < len(g.B2); i += 2 {
-				x := g.B2[i]
-				y := g.B2[i+1]
-				n.B2.Data = append(n.B2.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
-			}
-			n.W3 = NewComplexMatrix(0, 2*1, cols)
-			for i := 0; i < len(g.W3); i += 2 {
-				a := g.W3[i]
-				b := g.W3[i+1]
-				n.W3.Data = append(n.W3.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
-			}
-			n.B3 = NewComplexMatrix(0, 1, cols)
-			for i := 0; i < len(g.B3); i += 2 {
-				x := g.B3[i]
-				y := g.B3[i+1]
-				n.B3.Data = append(n.B3.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
-			}
-			n.W4 = NewComplexMatrix(0, 2*cols, rows)
-			for i := 0; i < len(g.W4); i += 2 {
-				a := g.W4[i]
-				b := g.W4[i+1]
-				n.W4.Data = append(n.W4.Data, complex(rng.NormFloat64()*a.StdDev+a.Mean, rng.NormFloat64()*b.StdDev+b.Mean))
-			}
-			n.B4 = NewComplexMatrix(0, 1, rows)
-			for i := 0; i < len(g.B4); i += 2 {
-				x := g.B4[i]
-				y := g.B4[i+1]
-				n.B4.Data = append(n.B4.Data, complex(rng.NormFloat64()*x.StdDev+x.Mean, rng.NormFloat64()*y.StdDev+y.Mean))
-			}
+			n := g.SampleAutoencoder(rng)
 			inputs := NewComplexMatrix(0, cols, 1)
 			for i := 0; i < cols; i++ {
 				inputs.Data = append(inputs.Data, 0)
@@ -291,9 +331,9 @@ func Autoencoder(seed int) {
 			fitness += sum
 			samples = append(samples, fitness)
 			stats[0].Add(float64(fitness))
-			network = &n
 			if fitness <= 7.5 {
 				fmt.Println(i, fitness)
+				network = &n
 				found = true
 				break
 			}
@@ -304,34 +344,14 @@ func Autoencoder(seed int) {
 		}
 		return samples, stats, network, found
 	}
-	test := func(network *AutoencoderNetwork) {
-		correct, incorrect := 0, 0
-		for k, value := range datum.Fisher {
-			inputs := NewComplexMatrix(0, cols, 1)
-			for i := 0; i < cols; i++ {
-				inputs.Data = append(inputs.Data, 0)
-			}
-			for j := range inputs.Data {
-				inputs.Data[j] = cmplx.Rect(1, value.Measures[j])
-			}
-			l2 := network.Middle(inputs)
-			v := l2.Data[0]
-			x := cmplx.Phase(v)
-			if x < 0 {
-				x += 2 * math.Pi
-			}
-			fmt.Println(k, x, value.Label)
-		}
-		fmt.Println("correct", correct, float64(correct)/float64(correct+incorrect))
-		fmt.Println("incorrect", incorrect, float64(incorrect)/float64(correct+incorrect))
-	}
+
 	done := false
 	d := make(plotter.Values, 0, 8)
 	for i := range pool {
 		dd, stats, network, found := sample(rng, &pool[i])
 		fmt.Println(i, stats[0].Mean, stats[0].StdDev)
 		if found {
-			test(network)
+			network.Test(datum.Fisher)
 			done = true
 			break
 		}
@@ -383,6 +403,11 @@ Search:
 			//return pool[i].Rank > pool[j].Rank
 		})
 		pool = pool[:pop]
+		if generation > 50 {
+			network := pool[0].SampleAutoencoder(rng)
+			network.Test(datum.Fisher)
+			break
+		}
 		fmt.Println(generation, pool[0].Fitness.Mean, pool[0].Fitness.StdDev)
 		if pool[0].Fitness.Mean < 1e-32 {
 			break Search
@@ -392,7 +417,7 @@ Search:
 				if i == j {
 					continue
 				}
-				g := copy(&pool[i])
+				g := pool[i].Copy()
 				w1 := pool[j].W1
 				b1 := pool[j].B1
 				w2 := pool[j].W2
@@ -409,7 +434,7 @@ Search:
 			}
 		}
 		for i := 0; i < pop; i++ {
-			g := copy(&pool[i])
+			g := pool[i].Copy()
 			g.W1[rng.Intn(len(g.W1))].Mean += rng.NormFloat64()
 			g.W1[rng.Intn(len(g.W1))].StdDev += rng.NormFloat64()
 			g.B1[rng.Intn(len(g.B1))].Mean += rng.NormFloat64()
@@ -424,7 +449,7 @@ Search:
 		i, flight := 0, 0
 		task := func(rng *rand.Rand, i int) {
 			_, stats, network, found := sample(rng, &pool[i])
-			if found || generation > 50 {
+			if found {
 				done <- network
 			}
 			pool[i].Fitness = stats[0]
@@ -452,7 +477,7 @@ Search:
 			}
 
 			if network := <-done; network != nil {
-				test(network)
+				network.Test(datum.Fisher)
 				break Search
 			}
 			flight--
@@ -467,9 +492,8 @@ Search:
 			flight++
 		}
 		for flight > 0 {
-			network := <-done
-			if network != nil {
-				test(network)
+			if network := <-done; network != nil {
+				network.Test(datum.Fisher)
 				break
 			}
 			flight--
