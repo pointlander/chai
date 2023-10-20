@@ -17,6 +17,14 @@ import (
 	"gonum.org/v1/plot/vg"
 )
 
+//time ./chai -rnn -number 340282366920938460843936948965011886881
+//...
+//18446744073709551533 18446744073709551557
+//
+//real    97m36.142s
+//user    187m3.345s
+//sys     0m41.107s
+
 // RNN implements a recurrent neural network for factoring integers
 func RNN(seed int) {
 	cpus := runtime.NumCPU()
