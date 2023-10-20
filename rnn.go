@@ -12,8 +12,6 @@ import (
 	"runtime"
 	"sort"
 
-	"github.com/pointlander/pagerank"
-
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -260,7 +258,7 @@ func RNN(seed int) {
 
 Search:
 	for !done {
-		graph := pagerank.NewGraph64()
+		/*graph := pagerank.NewGraph64()
 		for i := range pool {
 			for j := i + 1; j < len(pool); j++ {
 				// http://homework.uoregon.edu/pub/class/es202/ztest.html
@@ -280,10 +278,10 @@ Search:
 		}
 		graph.Rank(0.85, 0.000001, func(node uint64, rank float64) {
 			pool[node].Rank = rank
-		})
+		})*/
 		sort.Slice(pool, func(i, j int) bool {
-			//return pool[i].Fitness.Cmp(&pool[j].Fitness) < 0
-			return pool[i].Rank > pool[j].Rank
+			return pool[i].Fitness.Cmp(&pool[j].Fitness) < 0
+			//return pool[i].Rank > pool[j].Rank
 		})
 		pool = pool[:pop]
 		fmt.Println(pool[0].Fitness.String(), pool[0].StdDev.String())

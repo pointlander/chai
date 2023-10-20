@@ -167,7 +167,7 @@ func main() {
 		return
 	}
 
-	Autoencoder(1)
+	//Autoencoder(1)
 
 	rnd := rand.New(rand.NewSource(1))
 	samples := make(plotter.Values, 0, 8)
