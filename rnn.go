@@ -25,6 +25,14 @@ import (
 //user    187m3.345s
 //sys     0m41.107s
 
+//time ./chai -rnn -number 340282366920938460843936948965011886881
+//...
+//18446744073709551533 18446744073709551557
+//
+//real    48m16.379s
+//user    94m20.563s
+//sys     0m20.269s
+
 // RNN implements a recurrent neural network for factoring integers
 func RNN(seed int) {
 	cpus := runtime.NumCPU()
@@ -141,7 +149,37 @@ func RNN(seed int) {
 			}
 		}
 		state := big.Int{}
-		cost, total, count := big.Float{}, 0.0, 0.0
+		cost, total, count, index := big.Float{}, 0.0, 0.0, 0
+		costs := make([]big.Float, 32*len(g.A))
+		maxDensity := func() (int, big.Float) {
+			sort.Slice(costs, func(i, j int) bool {
+				return costs[i].Cmp(&costs[j]) < 0
+			})
+			index, min, cost := 0, big.Float{}, big.Float{}
+			for i := range costs[:len(costs)-8] {
+				mean, size := big.Float{}, big.Float{}
+				for j := i; j < i+8; j++ {
+					mean.Add(&mean, &costs[j])
+					size.Add(&size, big.NewFloat(1))
+				}
+				mean.Quo(&mean, &size)
+				stddev := big.Float{}
+				for j := i; j < i+8; j++ {
+					diff := big.Float{}
+					diff.Sub(&mean, &costs[j])
+					diff.Mul(&diff, &diff)
+					stddev.Add(&stddev, &diff)
+				}
+				stddev.Quo(&stddev, &size)
+				stddev.Sqrt(&stddev)
+				if i == 0 || stddev.Cmp(&min) < 0 {
+					min.Copy(&stddev)
+					index = i + 4
+					cost.Copy(&costs[index])
+				}
+			}
+			return index, cost
+		}
 		for i := 0; i < 32; i++ {
 			sampledT := big.Int{}
 			e := big.Int{}
@@ -187,7 +225,9 @@ func RNN(seed int) {
 						squared.Mul(&cost, &cost)
 						stddev.Sub(&stddev, &squared)
 						stddev.Sqrt(&stddev)
-						return samples, avg, stddev, found, percent / count
+						costs = costs[:index]
+						_, min := maxDensity()
+						return samples, min, stddev, found, percent / count
 					}
 				}
 				iCost := big.Int{}
@@ -204,6 +244,8 @@ func RNN(seed int) {
 				num := big.Float{}
 				num.SetInt(&iCost)
 				num.Quo(&num, &denom)
+				costs[index].Copy(&cost)
+				index++
 				cost.Add(&cost, &num)
 				num.Mul(&num, &num)
 				stddev.Add(&stddev, &num)
@@ -228,7 +270,8 @@ func RNN(seed int) {
 		squared.Mul(&cost, &cost)
 		stddev.Sub(&stddev, &squared)
 		stddev.Sqrt(&stddev)
-		return samples, cost, stddev, found, percent / count
+		_, min := maxDensity()
+		return samples, min, stddev, found, percent / count
 	}
 	done := false
 	d := make(plotter.Values, 0, 8)
